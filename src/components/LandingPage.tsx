@@ -1,6 +1,7 @@
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { BookOpen, MessageSquare, TrendingUp, Users, Award, CheckCircle, Globe, Clock } from "lucide-react";
+import K4YLogo from "../assets/K4Y_logo.png";
 
 interface LandingPageProps {
   onNavigate: (screen: string) => void;
@@ -54,7 +55,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-red-600">Korean For You</h1>
+              <img src={K4YLogo} alt="Korean For You" className="h-10" />
             </div>
             <div className="flex items-center gap-4">
               <Button variant="ghost" onClick={() => onNavigate('login')}>
@@ -305,7 +306,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-xl font-bold text-white mb-4">Korean For You</h3>
+              <img src={K4YLogo} alt="Korean For You" className="h-8 mb-4" />
               <p className="text-sm">
                 요식업 외국인 근로자를 위한 실무 한국어 학습 플랫폼
               </p>

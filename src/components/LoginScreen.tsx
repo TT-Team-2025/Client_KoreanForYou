@@ -2,6 +2,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import K4YLogo from "../assets/K4Y_logo.png";
 
 interface LoginScreenProps {
   onNavigate: (screen: string) => void;
@@ -17,7 +18,7 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-red-600 mb-4">Korean For You</h1>
+          <img src={K4YLogo} alt="Korean For You" className="h-16 mx-auto mb-4" />
           <p className="text-gray-600">요식업 외국인 근로자를 위한 실무 한국어</p>
         </div>
 

@@ -1,5 +1,6 @@
 import { Button } from "./ui/button";
 import { Home, BookOpen, MessageSquare, BarChart3, Users, User } from "lucide-react";
+import K4YLogo from "../assets/K4Y_logo.png";
 
 interface NavigationProps {
   onNavigate: (screen: string) => void;
@@ -24,7 +25,7 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
             className="flex items-center cursor-pointer w-48"
             onClick={() => onNavigate('home')}
           >
-            <h1 className="text-2xl font-bold text-red-600">Korean For You</h1>
+            <img src={K4YLogo} alt="Korean For You" className="h-10" />
           </div>
 
           {/* Main Navigation */}
