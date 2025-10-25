@@ -50,7 +50,7 @@ type Screen =
   | 'myComments';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('sentenceLearning');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [navigationHistory, setNavigationHistory] = useState<Screen[]>([]);
   
   // User data (mock - in real app, this would come from authentication)
