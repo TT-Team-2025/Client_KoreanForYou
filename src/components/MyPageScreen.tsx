@@ -1,3 +1,6 @@
+// 상태: ✅ UI 완성됨 / ⚙️ API 연동 미구현
+// 설명: 백엔드 연결 전까지는 Mock 데이터 기반으로 작동
+
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
