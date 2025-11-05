@@ -139,10 +139,14 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
                     <SelectValue placeholder="직무를 선택하세요" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border border-gray-200 shadow-md">
-                    <SelectItem value="1">요식업</SelectItem>
-                    <SelectItem value="2">제조업</SelectItem>
-                    <SelectItem value="3">배달직</SelectItem>
-                    <SelectItem value="4">서비스직</SelectItem>
+                    <SelectItem value="1">주방보조</SelectItem>
+                    <SelectItem value="2">서빙</SelectItem>
+                    <SelectItem value="3">바리스타</SelectItem>
+                    <SelectItem value="4">캐셔</SelectItem>
+                    <SelectItem value="5">배달</SelectItem>
+                    <SelectItem value="6">주방장</SelectItem>
+                    <SelectItem value="7">설거지</SelectItem>
+
                   </SelectContent>
                 </Select>
               </div>
