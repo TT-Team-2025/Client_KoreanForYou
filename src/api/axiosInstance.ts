@@ -1,10 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "/api", // 프록시 덕분에 /api만 써도 됨
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: "/api",
+  withCredentials: true,
 });
 
 export default api;
