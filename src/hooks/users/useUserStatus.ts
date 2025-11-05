@@ -9,7 +9,7 @@ export const useUserStatus = (userId: number) => {
   return useQuery<UserStatus, Error>({
     queryKey: ['userStatus', userId],
     queryFn: () => getUserStatus(userId),
-    enabled: !!userId,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: !!userId && userId > 0, // userId가 유효할 때만 쿼리 실행
+    // refetchInterval 제거 - 필요시 수동으로 refetch 호출
   });
 };

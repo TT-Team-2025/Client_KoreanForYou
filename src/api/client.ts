@@ -21,31 +21,47 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // 일반 요청은 로그 생략 (너무 많은 로그 방지)
     return config;
   },
   (error: AxiosError) => {
+    console.error('[API] ❌ 요청 에러:', error);
     return Promise.reject(error);
   }
 );
 
 // 응답 인터셉터: 토큰 갱신 및 에러 처리
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // 성공 응답은 로그 생략 (너무 많은 로그 방지)
+    return response;
+  },
   async (error: AxiosError) => {
+    // 에러만 로그 출력
+    console.warn('[API] ⚠️ 응답 에러:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // 401 에러 && 재시도 안함
     if (error.response?.status === 401 && !originalRequest._retry) {
+      console.log('[AUTH] 🔐 401 에러 감지 - 토큰 갱신 시도');
       originalRequest._retry = true;
 
       const refreshToken = getRefreshToken();
       if (refreshToken) {
         try {
+          console.log('[AUTH] 🔄 토큰 갱신 API 호출 중...');
           // 토큰 갱신 API 호출
           const { data } = await axios.post(`${BASE_URL}/auth/refresh`, {
             refresh_token: refreshToken,
           });
 
+          console.log('[AUTH] ✅ 토큰 갱신 성공');
           // 새 토큰 저장
           setTokens(data.access_token, data.refresh_token);
 
@@ -53,14 +69,17 @@ apiClient.interceptors.response.use(
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
           }
+          console.log('[AUTH] 🔁 원래 요청 재시도:', originalRequest.url);
           return apiClient.request(originalRequest);
         } catch (refreshError) {
+          console.error('[AUTH] ❌ 토큰 갱신 실패 - 로그아웃 처리', refreshError);
           // 토큰 갱신 실패 → 로그아웃 처리
           clearTokens();
           window.location.href = '/login';
           return Promise.reject(refreshError);
         }
       } else {
+        console.warn('[AUTH] ⚠️ Refresh Token 없음 - 로그인 페이지로 이동');
         // refresh token 없음 → 로그인 페이지로
         clearTokens();
         window.location.href = '/login';

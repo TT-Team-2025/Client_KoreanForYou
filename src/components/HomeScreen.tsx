@@ -11,6 +11,7 @@ import { QuickAccessCard } from "./shared/QuickAccessCard";
 import { LevelBadge } from "./shared/LevelBadge";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
+import { useChapters } from "@/hooks/chapters/useChapters";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -20,7 +21,9 @@ interface HomeScreenProps {
 export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenProps) {
   // API로 사용자 정보 조회
   const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
+
   const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
+  const { data: chapters, isLoading: isLoadingChapters, error: chaptersError } = useChapters();
 
   // 로딩 중일 때
   if (isLoadingProfile || isLoadingStatus) {

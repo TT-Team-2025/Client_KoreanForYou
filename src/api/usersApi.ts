@@ -16,7 +16,7 @@ import { BaseResponse } from '@/types/commonTypes';
  */
 export const getMyProfile = async (): Promise<User> => {
   const response = await apiClient.get('/users/');
-  console.log('getMyProfile response : ', response)
+  console.log('getMyProfile response : ', response.data)
   return response.data;
 };
 
@@ -61,6 +61,6 @@ export const changeJob = async (data: UserJobChange): Promise<BaseResponse> => {
  */
 export const getUserStatus = async (userId: number): Promise<UserStatus> => {
   const response = await apiClient.get(`/users/${userId}/status`);
-  console.log("getUserStatus response : ", response);
+  console.log("getUserStatus response : ", response.data);
   return response.data;
 };
