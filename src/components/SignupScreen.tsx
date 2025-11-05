@@ -3,7 +3,14 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "./ui/select";
+import { api } from "../api/axiosInstance"; // ✅ axios 인스턴스 import
 import K4YLogo from "../assets/K4Y_logo.png";
 
 interface SignupScreenProps {
@@ -31,26 +38,34 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 간단한 유효성 검사
     if (!form.email || !form.password || !form.nickname) {
       alert("이메일, 비밀번호, 닉네임은 필수 입력 항목입니다.");
       return;
     }
 
-    // 추후 백엔드 API 연결 (지금은 mock)
-    const userData = {
+    // ✅ 백엔드에 맞게 데이터 변환
+    const signupData = {
       email: form.email,
+      password: form.password,
       nickname: form.nickname,
       nationality: form.nationality,
-      job: form.job,
-      level: form.level,
-    };
+      job_id: 1, // 강제로 유효한 값 (기본값) 기본값 1 , job_id, level_id 형태로 전달해야 422 오류 방지
+      level_id: 1,};
+    try {
+      const res = await api.post("/auth/signup", signupData);
+      console.log("✅ 회원가입 성공:", res.data);
+      alert("회원가입 성공! 로그인 페이지로 이동합니다.");
 
-    console.log("회원가입 시도:", userData);
-
-    // 회원가입 성공 처리
-    if (onSignupSuccess) onSignupSuccess(userData);
-    onNavigate("login");
+      // 성공 후 후속처리
+      if (onSignupSuccess) onSignupSuccess(res.data);
+      onNavigate("login");
+    } catch (err: any) {
+      console.error("❌ 회원가입 실패:", err);
+      alert(
+        "회원가입 실패: " +
+          (err.response?.data?.detail || "서버와의 통신 중 오류가 발생했습니다.")
+      );
+    }
   };
 
   return (
@@ -131,10 +146,7 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
               {/* 직무 */}
               <div className="space-y-2">
                 <Label htmlFor="job">직무</Label>
-                <Select
-                  onValueChange={(val) => handleChange("job", val)}
-                  value={form.job}
-                >
+                <Select onValueChange={(val) => handleChange("job", val)} value={form.job}>
                   <SelectTrigger id="job">
                     <SelectValue placeholder="직무를 선택하세요" />
                   </SelectTrigger>
@@ -146,7 +158,6 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
                     <SelectItem value="5">배달</SelectItem>
                     <SelectItem value="6">주방장</SelectItem>
                     <SelectItem value="7">설거지</SelectItem>
-
                   </SelectContent>
                 </Select>
               </div>
@@ -154,10 +165,7 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
               {/* 한국어 수준 */}
               <div className="space-y-2">
                 <Label htmlFor="level">한국어 수준</Label>
-                <Select
-                  onValueChange={(val) => handleChange("level", val)}
-                  value={form.level}
-                >
+                <Select onValueChange={(val) => handleChange("level", val)} value={form.level}>
                   <SelectTrigger id="level">
                     <SelectValue placeholder="한국어 수준을 선택하세요" />
                   </SelectTrigger>
@@ -177,11 +185,7 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
 
             {/* 하단 네비게이션 */}
             <div className="text-center space-y-2 mt-4">
-              <Button
-                variant="link"
-                onClick={() => onNavigate("login")}
-                className="w-full"
-              >
+              <Button variant="link" onClick={() => onNavigate("login")} className="w-full">
                 이미 계정이 있으신가요? 로그인
               </Button>
               <Button
