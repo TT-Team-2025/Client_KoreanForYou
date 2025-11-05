@@ -9,6 +9,8 @@ import { LearningRecordCard } from "./shared/LearningRecordCard";
 import { StatCard } from "./shared/StatCard";
 import { QuickAccessCard } from "./shared/QuickAccessCard";
 import { LevelBadge } from "./shared/LevelBadge";
+import { useUserProfile } from "@/hooks/users/useUserProfile";
+import { useUserStatus } from "@/hooks/users/useUserStatus";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -16,6 +18,22 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenProps) {
+  // API로 사용자 정보 조회
+  const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
+  const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
+
+  // 로딩 중일 때
+  if (isLoadingProfile || isLoadingStatus) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">사용자 정보를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   // 최근 학습 기록 데이터
   const recentRecords = [
     { 
@@ -66,7 +84,9 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl mb-2">안녕하세요, 홍길동님! 👋</h1>
+          <h1 className="text-3xl mb-2">
+            안녕하세요, {userProfile?.nickname || '사용자'}님! 👋
+          </h1>
           <p className="text-gray-600">오늘도 한국어 학습을 시작해볼까요?</p>
         </div>
 
@@ -184,8 +204,8 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <LevelBadge level={2} />
-                    <CardTitle className="mt-2">레벨 2</CardTitle>
+                    <LevelBadge level={userProfile?.level_id || 1} />
+                    <CardTitle className="mt-2">레벨 {userProfile?.level_id || 1}</CardTitle>
                   </div>
                   <Award className="w-12 h-12 text-yellow-500" />
                 </div>
@@ -203,10 +223,30 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4">
-              <StatCard icon={Clock} value="12시간" label="학습 시간" iconColor="text-blue-500" />
-              <StatCard icon={BookOpen} value="156개" label="완료 문장" iconColor="text-green-500" />
-              <StatCard icon={MessageSquare} value="23회" label="AI 대화" iconColor="text-purple-500" />
-              <StatCard icon={TrendingUp} value="5일" label="연속 학습" iconColor="text-orange-500" />
+              <StatCard
+                icon={Clock}
+                value={`${Math.floor((userStatus?.total_study_time || 0) / 60)}시간`}
+                label="학습 시간"
+                iconColor="text-blue-500"
+              />
+              <StatCard
+                icon={BookOpen}
+                value={`${userStatus?.total_sentences_completed || 0}개`}
+                label="완료 문장"
+                iconColor="text-green-500"
+              />
+              <StatCard
+                icon={MessageSquare}
+                value={`${userStatus?.total_scenarios_completed || 0}회`}
+                label="AI 대화"
+                iconColor="text-purple-500"
+              />
+              <StatCard
+                icon={TrendingUp}
+                value={`${userStatus?.current_access_days || 0}일`}
+                label="연속 학습"
+                iconColor="text-orange-500"
+              />
             </div>
 
             {/* Weekly Goal */}
