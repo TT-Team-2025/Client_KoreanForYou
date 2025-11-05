@@ -1,3 +1,19 @@
+/**
+ * ==========================================================
+ * 📁 파일명: SignupScreen.tsx
+ * 📜 역할: 회원가입 화면 (백엔드 /auth/signup API 연동)
+ * ==========================================================
+ *
+ * ✅ 핵심 기능 요약
+ * 1️⃣ 사용자로부터 이메일, 비밀번호, 닉네임, 국적, 직무, 레벨 입력받기
+ * 2️⃣ 입력값을 FastAPI 백엔드의 /auth/signup 엔드포인트로 전송
+ * 3️⃣ 성공 시 → "회원가입 성공" 알림 후 로그인 페이지로 이동
+ *
+ * ⚙️ 주의: 로그인 기능은 LoginScreen에서 수행
+ * - 회원가입 후 로그인하려면 로그인 페이지로 이동해 로그인해야 함
+ * ==========================================================
+ */
+
 import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -10,7 +26,7 @@ import {
   SelectItem,
   SelectValue,
 } from "./ui/select";
-import { api } from "../api/axiosInstance"; // ✅ axios 인스턴스 import
+import api from "../api/axiosInstance"; // ✅ 공통 Axios 인스턴스 import
 import K4YLogo from "../assets/K4Y_logo.png";
 
 interface SignupScreenProps {
@@ -19,7 +35,10 @@ interface SignupScreenProps {
 }
 
 export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps) {
-  // ✅ 입력값 상태
+  /**
+   * ✅ 입력 상태 관리
+   * - 각 input/select 값들을 form 객체에 저장
+   */
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -29,45 +48,58 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
     level: "",
   });
 
-  // ✅ 상태 변경 핸들러
+  /**
+   * ✅ 상태 업데이트 핸들러
+   * - input/select 변경 시 해당 key에 value를 반영
+   */
   const handleChange = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  // ✅ 폼 제출 이벤트
+  /**
+   * ✅ 회원가입 요청 이벤트
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 필수값 확인
     if (!form.email || !form.password || !form.nickname) {
       alert("이메일, 비밀번호, 닉네임은 필수 입력 항목입니다.");
       return;
     }
 
-    // ✅ 백엔드에 맞게 데이터 변환
+    // 백엔드 스키마에 맞게 필드 변환
     const signupData = {
       email: form.email,
       password: form.password,
       nickname: form.nickname,
       nationality: form.nationality,
-      job_id: 1, // 강제로 유효한 값 (기본값) 기본값 1 , job_id, level_id 형태로 전달해야 422 오류 방지
-      level_id: 1,};
+      job_id: Number(form.job) || 1, // 선택 안 했을 경우 기본값 1
+      level_id: Number(form.level) || 1, // 선택 안 했을 경우 기본값 1
+    };
+
     try {
+      // ✅ 회원가입 API 요청
       const res = await api.post("/auth/signup", signupData);
       console.log("✅ 회원가입 성공:", res.data);
-      alert("회원가입 성공! 로그인 페이지로 이동합니다.");
 
-      // 성공 후 후속처리
+      alert("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
+
+      // ✅ 후속 처리 (onSignupSuccess 콜백 + 페이지 이동)
       if (onSignupSuccess) onSignupSuccess(res.data);
       onNavigate("login");
     } catch (err: any) {
       console.error("❌ 회원가입 실패:", err);
       alert(
         "회원가입 실패: " +
-          (err.response?.data?.detail || "서버와의 통신 중 오류가 발생했습니다.")
+          (err.response?.data?.detail || "서버 통신 중 오류가 발생했습니다.")
       );
     }
   };
 
+  // ================================
+  // ✅ 화면(UI)
+  // ================================
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-red-50 p-4">
       <div className="w-full max-w-2xl">
@@ -146,7 +178,10 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
               {/* 직무 */}
               <div className="space-y-2">
                 <Label htmlFor="job">직무</Label>
-                <Select onValueChange={(val) => handleChange("job", val)} value={form.job}>
+                <Select
+                  onValueChange={(val) => handleChange("job", val)}
+                  value={form.job}
+                >
                   <SelectTrigger id="job">
                     <SelectValue placeholder="직무를 선택하세요" />
                   </SelectTrigger>
@@ -165,7 +200,10 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
               {/* 한국어 수준 */}
               <div className="space-y-2">
                 <Label htmlFor="level">한국어 수준</Label>
-                <Select onValueChange={(val) => handleChange("level", val)} value={form.level}>
+                <Select
+                  onValueChange={(val) => handleChange("level", val)}
+                  value={form.level}
+                >
                   <SelectTrigger id="level">
                     <SelectValue placeholder="한국어 수준을 선택하세요" />
                   </SelectTrigger>
@@ -185,7 +223,11 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
 
             {/* 하단 네비게이션 */}
             <div className="text-center space-y-2 mt-4">
-              <Button variant="link" onClick={() => onNavigate("login")} className="w-full">
+              <Button
+                variant="link"
+                onClick={() => onNavigate("login")}
+                className="w-full"
+              >
                 이미 계정이 있으신가요? 로그인
               </Button>
               <Button
