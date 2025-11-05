@@ -10,7 +10,7 @@ import {
   SelectItem,
   SelectValue,
 } from "./ui/select";
-import { api } from "../api/axiosInstance"; // ✅ axios 인스턴스 import
+import api from "../api/axiosInstance"; // ✅ axios 인스턴스 import
 import K4YLogo from "../assets/K4Y_logo.png";
 
 interface SignupScreenProps {
