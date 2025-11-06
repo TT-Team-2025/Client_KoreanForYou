@@ -44,3 +44,11 @@ export interface CreateReplyRequest {
   content: string;
 }
 
+// Response 타입
+export interface PostsResponse {
+  posts: Post[];
+  total: number;
+  page: number;
+  size: number;
+}
+

@@ -13,6 +13,7 @@ import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useChapters } from "@/hooks/chapters/useChapters";
 import { useSentence } from "@/hooks/sentences/useSentence";
+import { useGetPosts } from "@/hooks/community/usePosts";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -22,7 +23,7 @@ interface HomeScreenProps {
 export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenProps) {
   // API로 사용자 정보 조회
   const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
-
+  const { data : posts , isLoading : isLoadingPosts} = useGetPosts()
   const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
   const { data: chapters, isLoading: isLoadingChapters, error: chaptersError } = useChapters();
 
@@ -193,23 +194,29 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { title: "주휴수당이 뭔가요?", category: "생활정보", views: 234 },
-                    { title: "손님이 화났을 때 어떻게 말해야 하나요?", category: "Q&A", views: 189 },
-                    { title: "최저시급 2025년 업데이트", category: "공지", views: 512 },
-                  ].map((post, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer border">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">{post.category}</Badge>
-                          <span>{post.title}</span>
+                {isLoadingPosts ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">게시글을 불러오는 중...</p>
+                  </div>
+                ) : posts?.posts && posts.posts.length > 0 ? (
+                  <div className="space-y-3">
+                    {posts.posts.slice(0, 3).map((post) => (
+                      <div key={post.post_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer border">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">{post.category}</Badge>
+                            <span>{post.title}</span>
+                          </div>
                         </div>
+                        <span className="text-sm text-gray-500">조회 {post.view_count}</span>
                       </div>
-                      <span className="text-sm text-gray-500">조회 {post.views}</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">게시글이 없습니다.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

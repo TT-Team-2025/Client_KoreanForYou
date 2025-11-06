@@ -17,14 +17,14 @@ export const useUserProfile = () => {
   });
 
   useEffect(() => {
-    if (query.data) {
-      console.log('[USER] 👤 사용자 프로필 로드 완료:', {
-        userId: query.data.user_id,
-        email: query.data.email,
-        nickname: query.data.nickname,
-        timestamp: new Date().toISOString()
-      });
-    }
+    // if (query.data) {
+    //   console.log('[USER] 👤 사용자 프로필 로드 완료:', {
+    //     userId: query.data.user_id,
+    //     email: query.data.email,
+    //     nickname: query.data.nickname,
+    //     timestamp: new Date().toISOString()
+    //   });
+    // }
     if (query.error) {
       console.error('[USER] ❌ 사용자 프로필 로드 실패:', query.error);
     }

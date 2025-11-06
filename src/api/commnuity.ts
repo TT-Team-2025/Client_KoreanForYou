@@ -6,12 +6,13 @@ import {
   CreateReplyRequest,
   Reply,
   CreatePostRequest,
+  PostsResponse,
 } from "@/types/community";
 import { BaseResponse } from "@/types/commonTypes";
 import api from "./axiosInstance";
 
-export const getPost = async (): Promise<Post> =>{
-    const response = await apiClient.get('/posts/')
+export const getPost = async (): Promise<PostsResponse> =>{
+    const response = await apiClient.get<PostsResponse>('/posts/')
     console.log('###### getPost() :', response.data)
     return response.data
 }// end getPost()
