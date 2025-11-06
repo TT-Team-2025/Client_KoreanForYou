@@ -1,7 +1,6 @@
 // ========================================
-// 📄 MyPageScreen.tsx (2025-11-06 최종)
-// 상태: ✅ UI 완성 + ⚙️ API 연동 완전 적용
-// 설명: /api/users/ GET/PUT 연결 + select 표시/투명도 버그 수정
+// 📄 MyPageScreen.tsx (2025-11-06 완전 주석 포함 버전)
+// 상태: ✅ 서버 description 필드 연동 완료 + 전체 UI 정상 표시
 // ========================================
 
 import { useState, useEffect } from "react";
@@ -28,7 +27,7 @@ import {
 } from "./ui/alert-dialog";
 
 // -----------------------------
-// 헬퍼 함수: 코드 → 이름 매핑
+// 🧭 코드 → 이름 매핑 함수
 // -----------------------------
 const mapNationalityCodeToName = (code: string) => {
   const map: Record<string, string> = {
@@ -56,13 +55,14 @@ const mapJobIdToName = (id: number) => {
 };
 
 // -----------------------------
-// 메인 컴포넌트
+// 🧱 메인 컴포넌트
 // -----------------------------
 interface MyPageScreenProps {
   onNavigate: (screen: string) => void;
 }
 
 export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
+  // ✅ 프로필 상태
   const [profileData, setProfileData] = useState({
     nickname: "",
     nationality: "",
@@ -83,7 +83,7 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
           nickname: res.data.nickname || "",
           nationality: mapNationalityCodeToName(res.data.nationality) || "",
           job: mapJobIdToName(res.data.job_id) || "",
-          jobDetail: res.data.job_detail || "",
+          jobDetail: res.data.description || "", // ✅ 서버 description 연동
         });
       } catch (err) {
         console.error("❌ 프로필 불러오기 실패:", err);
@@ -97,9 +97,9 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
     try {
       await api.put("/users/", {
         nickname: profileData.nickname,
-        nationality: profileData.nationality.toUpperCase(), // 코드로 변환 (예: VN)
+        nationality: profileData.nationality.toUpperCase(),
         job_name: profileData.job,
-        job_detail: profileData.jobDetail,
+        description: profileData.jobDetail, // ✅ 서버 필드명과 일치
       });
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
@@ -109,23 +109,30 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
     }
   };
 
+  // ✅ 로그아웃
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     onNavigate("login");
   };
 
+  // ✅ 회원 탈퇴 (임시 알림)
   const handleDeleteAccount = () => {
     alert("계정이 삭제되었습니다. 그동안 이용해주셔서 감사합니다.");
     onNavigate("login");
   };
 
+  // -----------------------------
+  // 🖼️ 렌더링
+  // -----------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-red-50">
       {/* 상단 네비게이션 */}
       <Navigation onNavigate={onNavigate} currentScreen="mypage" />
 
+      {/* 메인 내용 */}
       <main className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white shadow-md rounded-2xl mt-6 mb-20">
+        {/* 저장 완료 알림 */}
         {isSaved && (
           <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
             프로필이 성공적으로 저장되었습니다!
@@ -138,8 +145,9 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
             <CardTitle>프로필</CardTitle>
             <CardDescription>회원님의 기본 정보를 관리할 수 있습니다.</CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-6">
-            {/* 아바타 */}
+            {/* 프로필 이미지 / 닉네임 */}
             <div className="flex items-center gap-6">
               <div className="relative">
                 <Avatar className="w-24 h-24">
@@ -155,6 +163,7 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
                   <Camera className="w-4 h-4 text-gray-600" />
                 </Button>
               </div>
+
               <div>
                 <h2 className="text-lg font-semibold">{profileData.nickname || "닉네임 미등록"}</h2>
                 <Badge variant="secondary" className="mt-1">
@@ -233,6 +242,7 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
               </div>
             </div>
 
+            {/* 저장 버튼 */}
             <Button
               className="w-full bg-red-500 hover:bg-red-600 text-white"
               onClick={handleSaveProfile}
@@ -242,7 +252,7 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
           </CardContent>
         </Card>
 
-        {/* 커뮤니티 */}
+        {/* 커뮤니티 섹션 */}
         <Card>
           <CardHeader>
             <CardTitle>커뮤니티 활동</CardTitle>
