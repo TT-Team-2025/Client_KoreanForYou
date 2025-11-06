@@ -1,3 +1,5 @@
+import { DateString } from "./commonTypes";
+
 /**
  * 챕터 정보
  */
@@ -27,4 +29,22 @@ export interface Sentence {
   tts_url?: string; // 사전 생성된 TTS URL
   order_num: number;
   mastery?: number; // 숙련도 (0-100)
+}
+
+// chapter내의 문장조회 (전체)
+export interface ChapterSentencesResponse {
+  sentences: Sentence[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+// 개별 sentence조회
+export interface GetSentence {
+  chapter_id : number,
+  content:string,
+  translated_content?: string | null,
+  tts_url?:string | null,
+  sentence_id : number,
+  created_at : DateString 
 }

@@ -12,6 +12,7 @@ import { LevelBadge } from "./shared/LevelBadge";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useChapters } from "@/hooks/chapters/useChapters";
+import { useSentence } from "@/hooks/sentences/useSentence";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -24,6 +25,9 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
 
   const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
   const { data: chapters, isLoading: isLoadingChapters, error: chaptersError } = useChapters();
+
+  // 오늘의 문장 조회 (예시로 sentenceId 1번 사용)
+  const { data: todaySentence, isLoading: isLoadingSentence } = useSentence(2);
 
   // 로딩 중일 때
   if (isLoadingProfile || isLoadingStatus) {
@@ -128,20 +132,30 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-white p-6 rounded-lg shadow-sm border">
-                  <p className="text-2xl text-center mb-3">
-                    "손님, 계산 도와드리겠습니다."
-                  </p>
-                  <p className="text-center text-gray-600 mb-4">
-                    Customer, I'll help you with the payment.
-                  </p>
-                  <div className="flex justify-center">
-                    <Button variant="outline" className="gap-2">
-                      <Volume2 className="w-4 h-4" />
-                      발음 듣기
-                    </Button>
+                {isLoadingSentence ? (
+                  <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+                    <p className="text-gray-500">문장을 불러오는 중...</p>
                   </div>
-                </div>
+                ) : todaySentence ? (
+                  <div className="bg-white p-6 rounded-lg shadow-sm border">
+                    <p className="text-2xl text-center mb-3">
+                      "{todaySentence.content}"
+                    </p>
+                    <p className="text-center text-gray-600 mb-4">
+                      {todaySentence.translated_content || 'Translation not available'}
+                    </p>
+                    <div className="flex justify-center">
+                      <Button variant="outline" className="gap-2">
+                        <Volume2 className="w-4 h-4" />
+                        발음 듣기
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+                    <p className="text-gray-500">문장을 불러올 수 없습니다.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
