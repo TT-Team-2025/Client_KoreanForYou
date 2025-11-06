@@ -42,6 +42,7 @@ apiClient.interceptors.response.use(
       status: error.response?.status,
       url: error.config?.url,
       message: error.message,
+      data: error.response?.data,
       timestamp: new Date().toISOString()
     });
 

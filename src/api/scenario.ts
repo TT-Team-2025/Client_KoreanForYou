@@ -11,7 +11,7 @@ import {
   EndScenarioResponse,
 } from "@/types/scenario";
 
-
+// 시나리오 처음 시작
 export const startScenarioSession = async (
   data: StartScenarioRequest
 ): Promise<StartScenarioResponse> => {
@@ -19,11 +19,11 @@ export const startScenarioSession = async (
     '/scenarios/start',
     data
   );
-  console.log(response.data)
+  console.log('ai 대화가 시작되었습니다 :', response.data.assistant)
   return response.data;
 };
 
-
+// 대화하기
 export const sendMessage = async (
   data: SendMessageRequest
 ): Promise<SendMessageResponse> => {
@@ -31,7 +31,7 @@ export const sendMessage = async (
     '/scenarios/message',
     data
   );
-  console.log(data, response.data)
+  console.log('ai와 대화중입니다.',data, response.data)
   return response.data;
 };
 

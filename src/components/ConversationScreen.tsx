@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Mic, Languages, PhoneOff } from "lucide-react";
 import { ConversationSetup, StartScenarioResponse } from "@/types/scenario";
 import { getAudioFileUrl } from "@/api/scenario";
+import { useSendVoiceMessage } from "@/hooks/scenarios/useSendVoiceMessage";
 
 interface ConversationScreenProps {
   onNavigate: (screen: string) => void;
@@ -37,6 +38,10 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const { mutate: sendVoice, isPending: isSendingVoice } = useSendVoiceMessage();
 
   // Play initial TTS audio
   useEffect(() => {
@@ -75,34 +80,106 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleRecord = () => {
-    if (isMuted) return;
-    
-    setIsRecording(true);
-    setTimeout(() => {
-      setIsRecording(false);
-      // Simulate user response
-      const newMessage: Message = {
-        id: messages.length + 1,
-        speaker: "user",
-        text: "네, 괜찮아요. 오늘 많이 바쁘시죠?",
-        translation: "Yes, I'm fine. You must be very busy today, right?",
-        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, newMessage]);
-      
-      // AI response
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: messages.length + 2,
-          speaker: "ai",
-          text: "네, 오늘 손님이 많아서 정신이 없네요. 도와주셔서 감사합니다.",
-          translation: "Yes, we have many customers today, so it's hectic. Thank you for your help.",
-          timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  const handleRecord = async () => {
+    if (isMuted || !sessionData) return;
+
+    if (isRecording) {
+      // 녹음 중지
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    } else {
+      // 녹음 시작
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // 지원되는 MIME 타입 확인
+        const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+
+        console.log('사용 중인 MIME 타입:', mimeType);
+
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
         };
-        setMessages(prev => [...prev, aiResponse]);
-      }, 1000);
-    }, 2000);
+
+        mediaRecorder.onstop = async () => {
+          setIsRecording(false);
+
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+          const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+          const audioFile = new File([audioBlob], `voice.${extension}`, { type: mimeType });
+
+          console.log('전송할 파일:', {
+            name: audioFile.name,
+            type: audioFile.type,
+            size: audioFile.size,
+            threadId: sessionData.session_id
+          });
+
+          // 음성 파일 전송
+          sendVoice(
+            {
+              thread_id: sessionData.session_id,
+              file: audioFile
+            },
+            {
+              onSuccess: (data) => {
+                // 사용자 메시지 추가 (STT 결과)
+                const userMessage: Message = {
+                  id: Date.now(),
+                  speaker: "user",
+                  text: data.user_text,
+                  translation: "", // 번역은 필요시 추가
+                  timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+                };
+                setMessages(prev => [...prev, userMessage]);
+
+                // AI 응답 메시지 추가
+                const aiMessage: Message = {
+                  id: Date.now() + 1,
+                  speaker: "ai",
+                  text: data.assistant,
+                  translation: "",
+                  timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+                };
+                setMessages(prev => [...prev, aiMessage]);
+
+                // AI 응답 TTS 재생
+                if (data.tts_filename && !isMuted) {
+                  const audioUrl = getAudioFileUrl(data.tts_filename);
+                  const audio = new Audio(audioUrl);
+                  audio.play().catch(error => {
+                    console.error('TTS 재생 실패:', error);
+                  });
+                }
+              },
+              onError: (error) => {
+                alert(`음성 전송 실패: ${error.message}`);
+              }
+            }
+          );
+
+          // 스트림 정리
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('마이크 접근 실패:', error);
+        alert('마이크 접근 권한이 필요합니다.');
+      }
+    }
   };
 
   const handleEndConversation = () => {
@@ -116,7 +193,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
       score: 88,
       messageCount: messages.length
     };
-    
+
     // 학습 기록을 전달하고 피드백으로 이동
     if (onComplete) {
       onComplete(conversationRecord);
@@ -131,8 +208,8 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
       {/* Header */}
       <header className="flex items-center justify-center px-5 pt-4 pb-4 relative">
         <div className="absolute left-5">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => setShowTranslation(!showTranslation)}
             className={`text-white hover:bg-white/10 ${showTranslation ? 'bg-white/20' : ''}`}
@@ -140,7 +217,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
             <Languages className="w-6 h-6" />
           </Button>
         </div>
-        
+
         <div className="text-white text-lg">{formatTime(elapsedTime)}</div>
       </header>
 
@@ -178,10 +255,10 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
                   }`}
                 >
                   <p className="leading-relaxed">{message.text}</p>
-                  {showTranslation && (
+                  {showTranslation && message.translation && (
                     <p className={`text-sm mt-2 pt-2 border-t italic ${
-                      message.speaker === 'ai' 
-                        ? 'border-white/20 text-white/70' 
+                      message.speaker === 'ai'
+                        ? 'border-white/20 text-white/70'
                         : 'border-gray-200 text-gray-600'
                     }`}>
                       {message.translation}
@@ -206,16 +283,18 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
           {/* Microphone Button */}
           <Button
             onClick={handleRecord}
-            disabled={isRecording || isMuted}
+            disabled={isMuted || isSendingVoice}
             className={`w-16 h-16 rounded-full transition-all ${
-              isRecording 
-                ? 'bg-blue-500 hover:bg-blue-600 animate-pulse' 
+              isRecording
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                : isSendingVoice
+                ? 'bg-blue-400 opacity-70'
                 : 'bg-white/20 hover:bg-white/30 border-2 border-white'
             }`}
           >
             <Mic className="w-7 h-7 text-white" />
           </Button>
-          
+
           {/* End Call Button (iPhone style) */}
           <div className="flex flex-col items-center gap-2">
             <Button
@@ -226,13 +305,13 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
             </Button>
             <span className="text-white/80 text-sm">종료</span>
           </div>
-          
+
           {/* Mute Button */}
           <Button
             onClick={() => setIsMuted(!isMuted)}
             className={`w-16 h-16 rounded-full transition-all ${
-              isMuted 
-                ? 'bg-red-500/20 border-2 border-red-500' 
+              isMuted
+                ? 'bg-red-500/20 border-2 border-red-500'
                 : 'bg-white/20 hover:bg-white/30 border-2 border-white'
             }`}
           >
