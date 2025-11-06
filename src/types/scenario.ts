@@ -80,6 +80,7 @@ export interface StartScenarioResponse {
     session_id: string; // Thread ID (세션 식별자)
     assistant: string; // AI의 첫 응답 메시지
     assistant_id: string; // OpenAI Assistant ID
+    tts_filename: string
 }
 
 
@@ -101,3 +102,9 @@ export interface EndScenarioResponse {
     turn_count: number; // 총 발화 횟수
 }
 
+export interface ConversationSetup {
+  topic: string;
+  userRole: string;
+  aiRole: string;
+  situation: string;
+}

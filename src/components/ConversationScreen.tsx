@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Mic, Languages, PhoneOff } from "lucide-react";
-import { ConversationSetup } from "./ConversationSetupScreen";
+import { ConversationSetup, StartScenarioResponse } from "@/types/scenario";
+import { getAudioFileUrl } from "@/api/scenario";
 
 interface ConversationScreenProps {
   onNavigate: (screen: string) => void;
   setup: ConversationSetup;
+  sessionData: StartScenarioResponse | null;
   userName: string;
   onComplete?: (learningRecord: any) => void;
 }
@@ -18,7 +20,7 @@ interface Message {
   timestamp: string;
 }
 
-export function ConversationScreen({ onNavigate, setup, userName, onComplete }: ConversationScreenProps) {
+export function ConversationScreen({ onNavigate, setup, sessionData, userName, onComplete }: ConversationScreenProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -27,13 +29,32 @@ export function ConversationScreen({ onNavigate, setup, userName, onComplete }: 
     {
       id: 1,
       speaker: "ai",
-      text: `안녕하세요, ${userName}님! 오늘 기분은 어떠세요?`,
+      text: sessionData?.assistant || `안녕하세요, ${userName}님! 오늘 기분은 어떠세요?`,
       translation: `Good evening, ${userName}! How are you feeling today?`,
       timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Play initial TTS audio
+  useEffect(() => {
+    if (sessionData?.tts_filename && !isMuted) {
+      const audioUrl = getAudioFileUrl(sessionData.tts_filename);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.play().catch(error => {
+        console.error('TTS 재생 실패:', error);
+      });
+
+      return () => {
+        audio.pause();
+        audio.src = '';
+      };
+    }
+  }, [sessionData, isMuted]);
 
   // Timer
   useEffect(() => {

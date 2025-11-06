@@ -10,7 +10,7 @@ import { ChapterListScreen } from "./components/ChapterListScreen";
 import { SentenceLearningScreen } from "./components/SentenceLearningScreen";
 import { PronunciationScreen } from "./components/PronunciationScreen";
 import { ScenarioSelectScreen } from "./components/ScenarioSelectScreen";
-import { ConversationSetupScreen, ConversationSetup } from "./components/ConversationSetupScreen";
+import { ConversationSetupScreen } from "./components/ConversationSetupScreen";
 import { ConversationScreen } from "./components/ConversationScreen";
 import { FeedbackScreen } from "./components/FeedbackScreen";
 import { ProgressScreen } from "./components/ProgressScreen";
@@ -23,6 +23,7 @@ import { LanguageSettingsScreen } from "./components/LanguageSettingsScreen";
 import { MyPostsScreen } from "./components/MyPostsScreen";
 import { MyCommentsScreen } from "./components/MyCommentsScreen";
 import { Toaster } from "./components/ui/sonner";
+import type { ConversationSetup, StartScenarioResponse } from "./types/scenario";
 
 type Screen = 
   | 'landing'
@@ -68,6 +69,9 @@ export default function App() {
     situation: ""
   });
 
+  // Session data from API
+  const [sessionData, setSessionData] = useState<StartScenarioResponse | null>(null);
+
   // Selected chapter data for sentence learning
   const [selectedChapter, setSelectedChapter] = useState<any>(null);
 
@@ -97,8 +101,9 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleStartConversation = (setup: ConversationSetup) => {
+  const handleStartConversation = (setup: ConversationSetup, sessionResponse: StartScenarioResponse) => {
     setConversationSetup(setup);
+    setSessionData(sessionResponse);
     handleNavigate('conversation');
   };
 
@@ -146,9 +151,10 @@ export default function App() {
         );
       case 'conversation':
         return (
-          <ConversationScreen 
-            onNavigate={handleNavigate} 
+          <ConversationScreen
+            onNavigate={handleNavigate}
             setup={conversationSetup}
+            sessionData={sessionData}
             userName={userData.nickname}
             onComplete={setSelectedLearningRecord}
           />
