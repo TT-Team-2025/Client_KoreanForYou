@@ -26,3 +26,21 @@ export interface Reply {
   created_at: DateString;
   updated_at: DateString;
 }
+
+// Request 타입
+export interface CreatePostRequest {
+  title: string;
+  content: string;
+  category: PostCategory;
+}
+
+export interface UpdatePostRequest {
+  title?: string;
+  content?: string;
+  category?: PostCategory;
+}
+
+export interface CreateReplyRequest {
+  content: string;
+}
+
