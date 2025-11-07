@@ -140,7 +140,7 @@ export default function App() {
           <ConversationSetupScreen 
             onNavigate={handleNavigate} 
             onStartConversation={handleStartConversation}
-            userJob={userData.job}
+            // userJob={userData.job}
           />
         );
       case 'conversation':
