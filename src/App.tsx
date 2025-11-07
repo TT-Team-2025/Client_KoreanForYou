@@ -54,12 +54,6 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [navigationHistory, setNavigationHistory] = useState<Screen[]>([]);
   
-  // User data (mock - in real app, this would come from authentication)
-  const [userData] = useState({
-    nickname: "김철수",
-    job: "kitchen-assistant", // 직무는 영문 key로 저장
-    level_id: 2 // 현재 레벨: 1=초급, 2=중급, 3=고급
-  });
 
   // Conversation setup data
   const [conversationSetup, setConversationSetup] = useState<ConversationSetup>({

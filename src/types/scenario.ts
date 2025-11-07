@@ -17,6 +17,15 @@ export interface Scenario{
     created_at: DateString
 }
 
+export interface Message {
+  id: number;
+  speaker: "ai" | "user";
+  text: string;
+  translation: string;
+  timestamp: string;
+}
+
+
 
 export interface Role{
     role_id: number,

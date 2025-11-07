@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Mic, Languages, PhoneOff } from "lucide-react";
-import { ConversationSetup, StartScenarioResponse } from "@/types/scenario";
+import { ConversationSetup, StartScenarioResponse, Message } from "@/types/scenario";
 import { getAudioFileUrl } from "@/api/scenario";
 import { useSendVoiceMessage } from "@/hooks/scenarios/useSendVoiceMessage";
+import { CONVERSATION_TEXT } from "@/constants/conversation";
 
 interface ConversationScreenProps {
   onNavigate: (screen: string) => void;
@@ -13,25 +14,18 @@ interface ConversationScreenProps {
   onComplete?: (learningRecord: any) => void;
 }
 
-interface Message {
-  id: number;
-  speaker: "ai" | "user";
-  text: string;
-  translation: string;
-  timestamp: string;
-}
 
 export function ConversationScreen({ onNavigate, setup, sessionData, userName, onComplete }: ConversationScreenProps) {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isRecording, setIsRecording] = useState(false); // 녹음 중
+  const [isMuted, setIsMuted] = useState(false); // 음소거
+  const [showTranslation, setShowTranslation] = useState(false); // 번역
+  const [elapsedTime, setElapsedTime] = useState(0); // 타이머
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       speaker: "ai",
-      text: sessionData?.assistant || `안녕하세요, ${userName}님! 오늘 기분은 어떠세요?`,
-      translation: `Good evening, ${userName}! How are you feeling today?`,
+      text: sessionData?.assistant || CONVERSATION_TEXT.MESSAGES.DEFAULT_AI_GREETING(userName),
+      translation: CONVERSATION_TEXT.MESSAGES.DEFAULT_AI_GREETING_EN(userName),
       timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -100,7 +94,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
           ? 'audio/webm;codecs=opus'
           : 'audio/webm';
 
-        console.log('사용 중인 MIME 타입:', mimeType);
+        console.log(CONVERSATION_TEXT.CONSOLE.MIME_TYPE, mimeType);
 
         const mediaRecorder = new MediaRecorder(stream, { mimeType });
         mediaRecorderRef.current = mediaRecorder;
@@ -119,7 +113,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
           const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
           const audioFile = new File([audioBlob], `voice.${extension}`, { type: mimeType });
 
-          console.log('전송할 파일:', {
+          console.log(CONVERSATION_TEXT.CONSOLE.SENDING_FILE, {
             name: audioFile.name,
             type: audioFile.type,
             size: audioFile.size,
@@ -159,7 +153,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
                   const audioUrl = getAudioFileUrl(data.tts_filename);
                   const audio = new Audio(audioUrl);
                   audio.play().catch(error => {
-                    console.error('TTS 재생 실패:', error);
+                    console.error(CONVERSATION_TEXT.CONSOLE.TTS_PLAY_FAILED, error);
                   });
                 }
               },
