@@ -1,3 +1,5 @@
+// 학습기록 대시보드 (UI 완성됨, API 연동만 남음) - 2025-11-02 기준
+
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
