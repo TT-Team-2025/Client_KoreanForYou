@@ -27,7 +27,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import K4YLogo from "../assets/K4Y_logo.png";
-import api from "../api/axiosInstance";
+import { useLogin } from "@/hooks/auth/useLogin";
 
 interface LoginScreenProps {
   onNavigate: (screen: string) => void;
@@ -39,7 +39,11 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
    */
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  /**
+   * ✅ React Query 로그인 hook
+   */
+  const loginMutation = useLogin();
 
   /**
    * ✅ 로그인 폼 전송 이벤트
@@ -52,41 +56,20 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
       return;
     }
 
-    try {
-      setLoading(true);
-
-      /**
-       * ✅ FastAPI OAuth2 Password 인증 방식
-       * - 필수 필드명: username / password
-       * - Content-Type: application/x-www-form-urlencoded
-       */
-      const formData = new URLSearchParams();
-      formData.append("username", email);
-      formData.append("password", password);
-
-      // 로그인 요청
-      const res = await api.post("/auth/login", formData, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-
-      console.log("✅ 로그인 성공:", res.data);
-
-      /**
-       * ✅ 토큰 저장
-       * - access_token: Authorization 헤더에 자동 포함됨 (axiosInstance.ts가 처리)
-       * - refresh_token: access_token 만료 시 재발급용
-       */
-      localStorage.setItem("access_token", res.data.access_token);
-      localStorage.setItem("refresh_token", res.data.refresh_token);
-
-      alert("로그인 성공! 환영합니다 👋");
-      onNavigate("home");
-    } catch (err: any) {
-      console.error("❌ 로그인 실패:", err);
-      alert("로그인 실패: 이메일 또는 비밀번호를 확인해주세요.");
-    } finally {
-      setLoading(false);
-    }
+    loginMutation.mutate(
+      { email, password },
+      {
+        onSuccess: () => {
+          console.log("✅ 로그인 성공");
+          alert("로그인 성공! 환영합니다 👋");
+          onNavigate("home");
+        },
+        onError: (error: any) => {
+          console.error("❌ 로그인 실패:", error);
+          alert("로그인 실패: 이메일 또는 비밀번호를 확인해주세요.");
+        },
+      }
+    );
   };
 
   // ================================
@@ -149,9 +132,9 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
               <Button
                 type="submit"
                 className="w-full bg-red-500 hover:bg-red-600"
-                disabled={loading}
+                disabled={loginMutation.isPending}
               >
-                {loading ? "로그인 중..." : "로그인"}
+                {loginMutation.isPending ? "로그인 중..." : "로그인"}
               </Button>
             </form>
 

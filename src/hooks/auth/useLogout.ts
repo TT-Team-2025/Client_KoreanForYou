@@ -6,8 +6,8 @@ export const useLogout = () => {
     mutationFn: logout,
     onSuccess: () => {
       // Clear tokens
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
     },
   });
 };

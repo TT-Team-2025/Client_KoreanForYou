@@ -9,7 +9,6 @@ import {
   PostsResponse,
 } from "@/types/community";
 import { BaseResponse } from "@/types/commonTypes";
-import api from "./axiosInstance";
 
 export const getPost = async (): Promise<PostsResponse> =>{
     const response = await apiClient.get<PostsResponse>('/posts/')

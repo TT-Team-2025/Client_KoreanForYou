@@ -3,7 +3,7 @@
 // 📜 역할: 인증(로그인 / 회원가입 / 토큰 / 로그아웃) 관련 API 모듈
 // ==========================================================
 
-import api from "./axiosInstance";
+import apiClient from "./client";
 import type {
   LoginRequest,
   LoginResponse,
@@ -15,11 +15,21 @@ import type { BaseResponse } from "@/types/commonTypes";
 
 // ==========================================================
 // ✅ 로그인 (POST /auth/login)
+// FastAPI OAuth2 Password 방식은 form-data 형식 요구
 // ==========================================================
 export const login = async (
   data: LoginRequest
 ): Promise<LoginResponse> => {
-  const res = await api.post<LoginResponse>("/auth/login", data);
+  // URLSearchParams로 form-data 형식 생성
+  const formData = new URLSearchParams();
+  formData.append("username", data.email);
+  formData.append("password", data.password);
+
+  const res = await apiClient.post<LoginResponse>("/auth/login", formData, {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
   return res.data;
 };
 
@@ -29,7 +39,7 @@ export const login = async (
 export const signup = async (
   data: SignupRequest
 ): Promise<BaseResponse<User>> => {
-  const res = await api.post<BaseResponse<User>>("/auth/signup", data);
+  const res = await apiClient.post<BaseResponse<User>>("/auth/signup", data);
   return res.data;
 };
 
@@ -39,7 +49,7 @@ export const signup = async (
 export const refreshToken = async (
   refresh_token: string
 ): Promise<LoginResponse> => {
-  const res = await api.post<LoginResponse>("/auth/refresh", { refresh_token });
+  const res = await apiClient.post<LoginResponse>("/auth/refresh", { refresh_token });
   return res.data;
 };
 
@@ -50,7 +60,7 @@ export const logout = async (): Promise<void> => {
   try {
     const refreshToken = localStorage.getItem("refresh_token");
     if (refreshToken) {
-      await api.post("/auth/logout", { refresh_token: refreshToken });
+      await apiClient.post("/auth/logout", { refresh_token: refreshToken });
     }
 
     // 🔒 로컬 토큰 및 유저정보 삭제
