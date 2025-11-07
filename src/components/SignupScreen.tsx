@@ -23,7 +23,7 @@ import {
   SelectItem,
   SelectValue,
 } from "./ui/select";
-import api from "../api/axiosInstance";
+import { useSignup } from "@/hooks/auth/useSignup";
 import K4YLogo from "../assets/K4Y_logo.png";
 
 interface SignupScreenProps {
@@ -53,6 +53,11 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
     description: "", // ✅ 구체적 직무
   });
 
+  /**
+   * ✅ React Query 회원가입 hook
+   */
+  const signupMutation = useSignup();
+
   const handleChange = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -79,17 +84,18 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
       description: form.description || "", // ✅ 구체적인 직무
     };
 
-    try {
-      const res = await api.post("/auth/signup", signupData);
-      console.log("✅ 회원가입 성공:", res.data);
-      alert("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
-
-      if (onSignupSuccess) onSignupSuccess(res.data);
-      onNavigate("login");
-    } catch (err: any) {
-      console.error("❌ 회원가입 실패:", err);
-      alert("회원가입 실패: " + (err.response?.data?.detail || "서버 오류가 발생했습니다."));
-    }
+    signupMutation.mutate(signupData, {
+      onSuccess: (data) => {
+        console.log("✅ 회원가입 성공:", data);
+        alert("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
+        if (onSignupSuccess) onSignupSuccess(data);
+        onNavigate("login");
+      },
+      onError: (error: any) => {
+        console.error("❌ 회원가입 실패:", error);
+        alert("회원가입 실패: " + (error.response?.data?.detail || "서버 오류가 발생했습니다."));
+      },
+    });
   };
 
   // ✅ UI 렌더링
@@ -216,8 +222,12 @@ export function SignupScreen({ onNavigate, onSignupSuccess }: SignupScreenProps)
                 />
               </div>
 
-              <Button type="submit" className="w-full bg-red-500 hover:bg-red-600">
-                회원가입
+              <Button
+                type="submit"
+                className="w-full bg-red-500 hover:bg-red-600"
+                disabled={signupMutation.isPending}
+              >
+                {signupMutation.isPending ? "가입 중..." : "회원가입"}
               </Button>
             </form>
 

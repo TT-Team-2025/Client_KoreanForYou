@@ -7,8 +7,8 @@ export const useLogin = () => {
     mutationFn: login,
     onSuccess: (data) => {
       // Store tokens
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
     },
   });
 };

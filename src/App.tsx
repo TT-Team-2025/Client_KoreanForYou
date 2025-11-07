@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LandingPage } from "./components/LandingPage";
 import { LoginScreen } from "./components/LoginScreen";
 import { SignupScreen } from "./components/SignupScreen";
@@ -51,9 +51,28 @@ type Screen =
   | 'myComments';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
+  // ✅ 로그인 상태 확인하여 초기 화면 설정
+  const getInitialScreen = (): Screen => {
+    const accessToken = localStorage.getItem('access_token');
+    return accessToken ? 'home' : 'landing';
+  };
+
+  const [currentScreen, setCurrentScreen] = useState<Screen>(getInitialScreen);
   const [navigationHistory, setNavigationHistory] = useState<Screen[]>([]);
-  
+
+  // ✅ 토큰 변경 감지 (로그아웃 시 자동으로 랜딩 페이지로 이동)
+  useEffect(() => {
+    const checkAuth = () => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken && currentScreen !== 'landing' && currentScreen !== 'login' && currentScreen !== 'signup') {
+        setCurrentScreen('landing');
+      }
+    };
+
+    // 주기적으로 토큰 확인
+    const interval = setInterval(checkAuth, 1000);
+    return () => clearInterval(interval);
+  }, [currentScreen]);
 
   // Conversation setup data
   const [conversationSetup, setConversationSetup] = useState<ConversationSetup>({
@@ -149,7 +168,7 @@ export default function App() {
             onNavigate={handleNavigate}
             setup={conversationSetup}
             sessionData={sessionData}
-            userName={userData.nickname}
+            // userName={userData.nickname}
             onComplete={setSelectedLearningRecord}
           />
         );
