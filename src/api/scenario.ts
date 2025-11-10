@@ -69,7 +69,7 @@ export const endScenarioSession = async (
     '/scenarios/end',
     data
   );
-  console.log(response.data)
+  console.log('대화를 종료합니다 : ',response.data)
   return response.data;
 };
 

@@ -4,6 +4,7 @@ import { Mic, Languages, PhoneOff } from "lucide-react";
 import { ConversationSetup, StartScenarioResponse, Message } from "@/types/scenario";
 import { getAudioFileUrl } from "@/api/scenario";
 import { useSendVoiceMessage } from "@/hooks/scenarios/useSendVoiceMessage";
+import { useEndScenario } from "@/hooks/scenarios/useEndScenario";
 import { CONVERSATION_TEXT } from "@/constants/conversation";
 
 interface ConversationScreenProps {
@@ -36,6 +37,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
   const audioChunksRef = useRef<Blob[]>([]);
 
   const { mutate: sendVoice, isPending: isSendingVoice } = useSendVoiceMessage();
+  const { mutate: endScenario, isPending: isEndingScenario } = useEndScenario();
 
   // Play initial TTS audio
   useEffect(() => {
@@ -177,22 +179,43 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
   };
 
   const handleEndConversation = () => {
-    // AI 대화 완료 기록 생성
-    const conversationRecord = {
-      id: Date.now(),
-      type: 'conversation',
-      title: setup.topic || 'AI 대화 연습',
-      date: new Date().toISOString().split('T')[0],
-      duration: formatTime(elapsedTime),
-      score: 88,
-      messageCount: messages.length
-    };
+    if (!sessionData) return;
 
-    // 학습 기록을 전달하고 피드백으로 이동
-    if (onComplete) {
-      onComplete(conversationRecord);
-    }
-    onNavigate('feedback');
+    // 시나리오 종료 API 호출
+    endScenario(
+      {
+        thread_id: sessionData.session_id
+      },
+      {
+        onSuccess: (data) => {
+          console.log('시나리오 종료 성공:', data);
+
+          // AI 대화 완료 기록 생성
+          const conversationRecord = {
+            id: Date.now(),
+            type: 'conversation',
+            title: setup.topic || 'AI 대화 연습',
+            date: new Date().toISOString().split('T')[0],
+            duration: formatTime(elapsedTime),
+            score: 88,
+            messageCount: data.turn_count || messages.length,
+            completionStatus: data.completion_status,
+            endTime: data.end_time
+          };
+          console.log('AI 대화 완료 기록 확인 : ', conversationRecord)
+
+          // 학습 기록을 전달하고 피드백으로 이동
+          if (onComplete) {
+            onComplete(conversationRecord);
+          }
+          onNavigate('feedback');
+        },
+        onError: (error) => {
+          console.error('시나리오 종료 실패:', error);
+          alert(`대화 종료 실패: ${error.message}`);
+        }
+      }
+    );
   };
 
   return (
@@ -293,7 +316,12 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
           <div className="flex flex-col items-center gap-2">
             <Button
               onClick={handleEndConversation}
-              className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 transition-all"
+              disabled={isEndingScenario}
+              className={`w-16 h-16 rounded-full transition-all ${
+                isEndingScenario
+                  ? 'bg-red-400 opacity-70'
+                  : 'bg-red-500 hover:bg-red-600'
+              }`}
             >
               <PhoneOff className="w-7 h-7 text-white" />
             </Button>
