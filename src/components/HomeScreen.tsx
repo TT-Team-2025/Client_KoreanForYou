@@ -11,9 +11,9 @@ import { QuickAccessCard } from "./shared/QuickAccessCard";
 import { LevelBadge } from "./shared/LevelBadge";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
-import { useChapters } from "@/hooks/chapters/useChapters";
 import { useRandomSentence } from "@/hooks/sentences/useRandomSentece";
 import { useGetPosts } from "@/hooks/community/usePosts";
+import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -25,11 +25,10 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
   const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
   const { data : posts , isLoading : isLoadingPosts} = useGetPosts()
   const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
-  const { data: chapters, isLoading: isLoadingChapters, error: chaptersError } = useChapters();
+  const { data : userCountSpeech, isLoading: isLodingSpeechCount} = useSpeechCount()
 
-  // 오늘의 문장 조회 (예시로 sentenceId 1번 사용)
-  const { data: todaySentence, isLoading: isLoadingSentence } =
-    useRandomSentence();
+  // 오늘의 문장 조회
+  const { data: todaySentence, isLoading: isLoadingSentence } = useRandomSentence();
 
   // 로딩 중일 때
   if (isLoadingProfile || isLoadingStatus) {
@@ -224,27 +223,7 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
 
           {/* Right Column - Stats & Progress */}
           <div className="space-y-6">
-            {/* User Level Card */}
-            <Card className="border-2 border-red-200 bg-red-50">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <LevelBadge level={userProfile?.level_id || 1} />
-                    <CardTitle className="mt-2">레벨 {userProfile?.level_id || 1}</CardTitle>
-                  </div>
-                  <Award className="w-12 h-12 text-yellow-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <div className="flex justify-between mb-2 text-sm">
-                    <span className="text-gray-600">전체 진행률</span>
-                    <span>45%</span>
-                  </div>
-                  <Progress value={45} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
+      
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4">
@@ -262,8 +241,8 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
               />
               <StatCard
                 icon={MessageSquare}
-                value={`${userStatus?.total_scenarios_completed || 0}회`}
-                label="AI 대화"
+                value={`${userCountSpeech?.total_turn_count || 0}회`}
+                label="총 발화 수"
                 iconColor="text-purple-500"
               />
               <StatCard
@@ -277,22 +256,28 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
             {/* Weekly Goal */}
             <Card className="border-2 border-red-200 bg-red-50">
               <CardHeader>
-                <CardTitle className="text-lg">이번 주 목표</CardTitle>
+                <CardTitle className="text-lg">학습 통계</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span>문장 학습</span>
-                    <span>15 / 20개</span>
+                    <span>완료한 문장</span>
+                    <span>{userStatus?.total_sentences_completed || 0}개</span>
                   </div>
-                  <Progress value={75} className="h-2" />
+                  <Progress
+                    value={Math.min((userStatus?.total_sentences_completed || 0) / 2, 100)}
+                    className="h-2"
+                  />
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span>AI 대화</span>
-                    <span>3 / 5회</span>
+                    <span>AI 대화 세션</span>
+                    <span>{userCountSpeech?.scenario_count || 0}회</span>
                   </div>
-                  <Progress value={60} className="h-2" />
+                  <Progress
+                    value={Math.min((userCountSpeech?.scenario_count || 0) * 10, 100)}
+                    className="h-2"
+                  />
                 </div>
                 
                 {/* 작은 달력 추가 */}

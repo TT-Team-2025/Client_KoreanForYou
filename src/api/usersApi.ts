@@ -60,7 +60,7 @@ export const changeJob = async (data: UserJobChange): Promise<BaseResponse> => {
  * 사용자 학습 상태 조회
  */
 export const getUserStatus = async (userId: number): Promise<UserStatus> => {
-  const response = await apiClient.get(`/users/${userId}/status`);
+  const response = await apiClient.get(`/progress/users/${userId}`);
   console.log("getUserStatus response : ", response.data);
   return response.data;
 };

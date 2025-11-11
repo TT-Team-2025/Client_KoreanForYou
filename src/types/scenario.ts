@@ -198,3 +198,9 @@ export interface SaveScenarioResponse {
   message: string;
   thread_id: string;
 }
+
+export interface SpeechCountResponse {
+    user_id : number,
+    total_turn_count : number,
+    scenario_count : number
+}

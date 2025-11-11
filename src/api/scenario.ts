@@ -9,6 +9,7 @@ import {
   SendVoiceMessageResponse,
   EndScenarioRequest,
   EndScenarioResponse,
+  SpeechCountResponse
 } from "@/types/scenario";
 
 // 시나리오 처음 시작
@@ -95,3 +96,10 @@ export const saveScenario = async (threadId: string) => {
   console.log('시나리오 저장 완료:', response.data);
   return response.data;
 };
+
+//사용자의 발화 개수 조회
+export const countSpeech = async ()=> {
+  const response = await apiClient.get('/scenarios/speech-count')
+  console.log('사용자가 ai와 대화한 발화 횟수입니다 : ', response.data)
+  return response.data
+}
