@@ -9,8 +9,10 @@ import { Progress } from "./ui/progress";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { BookOpen, Briefcase } from "lucide-react";
+import { useUserProfile } from "@/hooks/users/useUserProfile";
 
-interface Chapter {
+// 서버에서 반환하는 챕터 목록의 실제 구조
+interface ChapterListItem {
   chapter_id: number;
   title: string;
   description: string;
@@ -26,17 +28,25 @@ interface ChapterListScreenProps {
 }
 
 export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
-  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chapters, setChapters] = useState<ChapterListItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ 사용자 프로필 정보 가져오기
+  const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
 
   // ✅ 챕터 데이터 불러오기
   useEffect(() => {
+    // 사용자 프로필이 로딩 중이면 대기
+    if (isLoadingProfile || !userProfile) {
+      return;
+    }
+
     const fetchChapters = async () => {
       try {
         const res = await api.get(`/chapters/`, {
           params: {
-            category_id: 1,
-            level_id: 1,
+            category_id: 1, // 기본값 유지 (필요시 추가 정보 필요)
+            level_id: userProfile.level_id || 1,
           },
         });
         console.log("📦 서버 응답:", res.data);
@@ -53,11 +63,11 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
       }
     };
     fetchChapters();
-  }, []);
+  }, [userProfile, isLoadingProfile]);
 
   // ✅ reduce 전에 배열 확인
   const grouped = Array.isArray(chapters)
-    ? chapters.reduce((acc: Record<string, Chapter[]>, ch: Chapter) => {
+    ? chapters.reduce((acc: Record<string, ChapterListItem[]>, ch: ChapterListItem) => {
         const key = ch.category_name || "기타";
         if (!acc[key]) acc[key] = [];
         acc[key].push(ch);
@@ -65,7 +75,7 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
       }, {})
     : {};
 
-  if (loading) {
+  if (loading || isLoadingProfile) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-600">
         📚 챕터를 불러오는 중입니다...

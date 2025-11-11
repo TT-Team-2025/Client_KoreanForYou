@@ -120,11 +120,6 @@ export default function App() {
     handleNavigate('conversation');
   };
 
-  const handleSelectChapter = (chapter: any) => {
-    setSelectedChapter(chapter);
-    handleNavigate('sentenceLearning');
-  };
-
   const handleSelectLearningRecord = (record: any) => {
     setSelectedLearningRecord(record);
     handleNavigate('feedback');
@@ -145,9 +140,9 @@ export default function App() {
       case 'levelTestResult':
         return <LevelTestResultScreen onNavigate={handleNavigate} />;
       case 'levelUp':
-        return <LevelUpScreen onNavigate={handleNavigate} newLevel={userData.level_id} previousLevel={userData.level_id - 1} />;
+        return <LevelUpScreen onNavigate={handleNavigate} newLevel={2} previousLevel={1} />;
       case 'chapterList':
-        return <ChapterListScreen onNavigate={handleNavigate} onBack={handleBack} onSelectChapter={handleSelectChapter} userJob={userData.job} userLevel={userData.level_id} />;
+        return <ChapterListScreen onNavigate={handleNavigate} />;
       case 'sentenceLearning':
         return <SentenceLearningScreen onNavigate={handleNavigate} onBack={handleBack} chapter={selectedChapter} onComplete={setSelectedLearningRecord} />;
       case 'pronunciation':
@@ -156,10 +151,9 @@ export default function App() {
         return <ScenarioSelectScreen onNavigate={handleNavigate} />;
       case 'conversationSetup':
         return (
-          <ConversationSetupScreen 
-            onNavigate={handleNavigate} 
+          <ConversationSetupScreen
+            onNavigate={handleNavigate}
             onStartConversation={handleStartConversation}
-            // userJob={userData.job}
           />
         );
       case 'conversation':
@@ -168,7 +162,6 @@ export default function App() {
             onNavigate={handleNavigate}
             setup={conversationSetup}
             sessionData={sessionData}
-            // userName={userData.nickname}
             onComplete={setSelectedLearningRecord}
           />
         );
