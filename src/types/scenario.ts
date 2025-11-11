@@ -204,3 +204,19 @@ export interface SpeechCountResponse {
     total_turn_count : number,
     scenario_count : number
 }
+
+// 시나리오 기록 아이템
+export interface ScenarioHistoryItem {
+    progress_id: number;
+    title: string;
+    description: string;
+    date: DateString;
+    completion_status: string; // "완료" | "진행중" | "중단"
+}
+
+// 시나리오 기록 목록 응답
+export interface ScenarioHistoryResponse extends BaseResponse<ScenarioHistoryItem[]> {
+    success: boolean;
+    message: string;
+    data: ScenarioHistoryItem[];
+}

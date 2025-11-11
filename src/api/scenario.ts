@@ -9,7 +9,8 @@ import {
   SendVoiceMessageResponse,
   EndScenarioRequest,
   EndScenarioResponse,
-  SpeechCountResponse
+  SpeechCountResponse,
+  ScenarioHistoryResponse,
 } from "@/types/scenario";
 
 // 시나리오 처음 시작
@@ -98,8 +99,22 @@ export const saveScenario = async (threadId: string) => {
 };
 
 //사용자의 발화 개수 조회
-export const countSpeech = async ()=> {
-  const response = await apiClient.get('/scenarios/speech-count')
-  console.log('사용자가 ai와 대화한 발화 횟수입니다 : ', response.data)
+export const countSpeech = async (): Promise<SpeechCountResponse> => {
+  const response = await apiClient.get("/scenarios/speech-count");
+  console.log("사용자가 ai와 대화한 발화 횟수입니다 : ", response.data);
+  return response.data;
+};
+
+//사용자 ai 대화 저장된 목록 조회
+export const getScenarioHistory = async(): Promise<ScenarioHistoryResponse> =>{
+  const response = await apiClient.get('/stats/scenarios/recent')
+  console.log('사용자가 저장한 ai시나리오 목록입니다 : ' , response.data)
+  return response.data
+}
+
+// progress_id로 시나리오 피드백 조회
+export const getScenarioFeedback = async(progressId: number) => {
+  const response = await apiClient.get(`/scenarios/session-summary/${progressId}`)
+  console.log('시나리오 피드백:', response.data)
   return response.data
 }

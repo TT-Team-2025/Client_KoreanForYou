@@ -8,6 +8,10 @@ import { ArrowLeft, Calendar, Clock, BookOpen, MessageSquare, Flame, Award, Chev
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Navigation } from "./Navigation";
 import { StudyCalendar } from "./StudyCalendar";
+import { useUserProfile } from "@/hooks/users/useUserProfile";
+import { useUserStatus } from "@/hooks/users/useUserStatus";
+import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
+import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
 
 interface ProgressScreenProps {
   onNavigate: (screen: string) => void;
@@ -16,12 +20,40 @@ interface ProgressScreenProps {
 }
 
 export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: ProgressScreenProps) {
+  // API로 사용자 정보 조회
+  const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
+  const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
+  const { data: userCountSpeech, isLoading: isLoadingSpeechCount } = useSpeechCount();
+  const { data: scenarioHistory, isLoading: isLoadingHistory } = useScenarioHistory();
+
   const handleBackClick = () => {
     if (onBack) {
       onBack('home');
     } else {
       onNavigate('home');
     }
+  };
+
+  // 로딩 중일 때
+  if (isLoadingProfile || isLoadingStatus) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 학습 시간 포맷팅 (초 -> 시간:분)
+  const formatStudyTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}시간 ${minutes}분`;
+    }
+    return `${minutes}분`;
   };
   
   // 이번 주인지 확인하는 함수
@@ -35,153 +67,85 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
     return date >= weekStart;
   };
   
-  const stats = {
-    totalStudyTime: "24시간 15분",
-    totalSentences: 156,
-    totalConversations: 12,
-    currentStreak: 5,
-    weeklyGoal: 70,
-    weeklyProgress: 65
-  };
+  // AI 대화 기록 데이터 (API에서 가져옴)
+  const conversationActivity = scenarioHistory?.data?.map(item => ({
+    id: item.progress_id,
+    date: item.date,
+    type: 'conversation',
+    title: item.title,
+    score: 85, // TODO: API에 점수 필드 추가 필요
+    description: item.description,
+    completion_status: item.completion_status,
+  })) || [];
 
-  const recentActivity = [
-    { 
-      id: 1,
-      date: "2025-10-20", 
-      type: "conversation", 
-      title: "매장에서 손님응대", 
-      score: 88,
-      duration: "7분 32초",
-      userRole: "서버",
-      aiRole: "손님",
-      situation: "손님이 메뉴를 주문하는 상황"
-    },
-    { 
+  // TODO: 문장 학습 기록 API 연동 필요 - 현재는 더미 데이터 사용
+  const sentenceActivity = [
+    {
       id: 2,
-      date: "2025-10-19", 
-      type: "sentence", 
-      title: "기본 인사·상태", 
+      date: "2025-10-19",
+      type: "sentence",
+      title: "기본 인사·상태",
       progress: 100,
       completedSentences: 10,
       totalSentences: 10
     },
-    { 
-      id: 3,
-      date: "2025-10-19", 
-      type: "conversation", 
-      title: "주방에서 셰프와 대화", 
-      score: 92,
-      duration: "5분 18초",
-      userRole: "주방보조",
-      aiRole: "주방장",
-      situation: "오늘의 재료 준비 상황 보고"
-    },
-    { 
+    {
       id: 4,
-      date: "2025-10-18", 
-      type: "sentence", 
-      title: "요청·부탁", 
+      date: "2025-10-18",
+      type: "sentence",
+      title: "요청·부탁",
       progress: 80,
       completedSentences: 8,
       totalSentences: 10
     },
-    { 
+    {
       id: 5,
-      date: "2025-10-17", 
-      type: "sentence", 
-      title: "감사·사과", 
+      date: "2025-10-17",
+      type: "sentence",
+      title: "감사·사과",
       progress: 100,
       completedSentences: 12,
       totalSentences: 12
     },
-    { 
-      id: 6,
-      date: "2025-10-16", 
-      type: "conversation", 
-      title: "동료와 협업하기", 
-      score: 76,
-      duration: "6분 42초",
-      userRole: "서빙",
-      aiRole: "동료",
-      situation: "바쁜 시간대 협력 요청"
-    },
-    { 
+    {
       id: 7,
-      date: "2025-10-13", 
-      type: "sentence", 
-      title: "위치·방향", 
+      date: "2025-10-13",
+      type: "sentence",
+      title: "위치·방향",
       progress: 60,
       completedSentences: 6,
       totalSentences: 10
     },
-    { 
-      id: 8,
-      date: "2025-10-12", 
-      type: "conversation", 
-      title: "계산 처리하기", 
-      score: 85,
-      duration: "4분 15초",
-      userRole: "캐셔",
-      aiRole: "손님",
-      situation: "계산 및 영수증 발급"
-    },
-    { 
+    {
       id: 9,
-      date: "2025-10-10", 
-      type: "sentence", 
-      title: "시간·날짜", 
+      date: "2025-10-10",
+      type: "sentence",
+      title: "시간·날짜",
       progress: 100,
       completedSentences: 8,
       totalSentences: 8
     },
-    { 
-      id: 10,
-      date: "2025-10-09", 
-      type: "conversation", 
-      title: "불만 대응하기", 
-      score: 68,
-      duration: "8분 55초",
-      userRole: "서빙",
-      aiRole: "불만 손님",
-      situation: "음식이 늦게 나온 상황"
-    },
-    { 
+    {
       id: 11,
-      date: "2025-10-08", 
-      type: "sentence", 
-      title: "주문받기", 
+      date: "2025-10-08",
+      type: "sentence",
+      title: "주문받기",
       progress: 100,
       completedSentences: 15,
       totalSentences: 15
-    },
-    { 
-      id: 12,
-      date: "2025-10-07", 
-      type: "conversation", 
-      title: "재료 주문하기", 
-      score: 94,
-      duration: "5분 30초",
-      userRole: "주방장",
-      aiRole: "공급업체",
-      situation: "이번 주 필요한 재료 주문"
     },
   ];
 
   const handleRecordClick = (record: any) => {
     if (onSelectLearningRecord) {
-      onSelectLearningRecord(record);
+      // progress_id를 명시적으로 포함하여 전달
+      onSelectLearningRecord({
+        ...record,
+        progress_id: record.id,
+      });
     }
     onNavigate('feedback');
   };
-
-  const chapterProgress = [
-    { chapter: "자기소개 하기", level: "초급", progress: 100 },
-    { chapter: "인사하기", level: "초급", progress: 100 },
-    { chapter: "메뉴 소개하기", level: "초급", progress: 60 },
-    { chapter: "주문 받기", level: "중급", progress: 80 },
-    { chapter: "계산하기", level: "중급", progress: 60 },
-    { chapter: "불만 대응하기", level: "중급", progress: 0 },
-  ];
 
   return (
     <div className="min-h-screen bg-white">
@@ -204,7 +168,7 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                 <div className="w-12 h-12 rounded-full bg-blue-200/50 flex items-center justify-center">
                   <Clock className="w-6 h-6 text-blue-600" />
                 </div>
-                <div className="text-3xl text-blue-900">{stats.totalStudyTime}</div>
+                <div className="text-3xl text-blue-900">{formatStudyTime(userStatus?.total_study_time || 0)}</div>
                 <div className="text-sm text-blue-700">총 학습 시간</div>
               </div>
             </CardContent>
@@ -217,7 +181,7 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                 <div className="w-12 h-12 rounded-full bg-green-200/50 flex items-center justify-center">
                   <BookOpen className="w-6 h-6 text-green-600" />
                 </div>
-                <div className="text-3xl text-green-900">{stats.totalSentences}개</div>
+                <div className="text-3xl text-green-900">{userStatus?.total_sentences_completed || 0}개</div>
                 <div className="text-sm text-green-700">완료한 문장</div>
               </div>
             </CardContent>
@@ -230,8 +194,8 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                 <div className="w-12 h-12 rounded-full bg-purple-200/50 flex items-center justify-center">
                   <MessageSquare className="w-6 h-6 text-purple-600" />
                 </div>
-                <div className="text-3xl text-purple-900">{stats.totalConversations}회</div>
-                <div className="text-sm text-purple-700">AI 대화 횟수</div>
+                <div className="text-3xl text-purple-900">{userCountSpeech?.scenario_count || 0}회</div>
+                <div className="text-sm text-purple-700">AI 대화 세션</div>
               </div>
             </CardContent>
           </Card>
@@ -243,57 +207,15 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                 <div className="w-12 h-12 rounded-full bg-orange-200/50 flex items-center justify-center">
                   <Flame className="w-6 h-6 text-orange-600" />
                 </div>
-                <div className="text-3xl text-orange-900">{stats.currentStreak}일</div>
+                <div className="text-3xl text-orange-900">{userStatus?.current_access_days || 0}일</div>
                 <div className="text-sm text-orange-700">연속 학습</div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* 2️⃣ 중간 섹션 - 이번 주 목표 및 성과 통합 카드 */}
-        <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200 shadow-md">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <Target className="w-6 h-6 text-amber-600" />
-              <CardTitle className="text-amber-900">🎯 이번 주 목표 달성 현황</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* 목표 진행률 */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-amber-800">이번 주 목표: {stats.weeklyGoal}분 학습</span>
-                <span className="text-amber-900">{stats.weeklyProgress}%</span>
-              </div>
-              <Progress value={stats.weeklyProgress} className="h-3 bg-amber-100" />
-              <div className="text-right text-sm text-amber-700">
-                {stats.weeklyGoal - stats.weeklyProgress}분 남음
-              </div>
-            </div>
+      
 
-            {/* 이번 주 성과 배지 */}
-            <div className="pt-2 border-t border-amber-200">
-              <p className="text-sm text-amber-800 mb-3">이번 주 성과</p>
-              <div className="flex gap-2 flex-wrap">
-                <Badge className="bg-white text-amber-900 border-amber-300 px-4 py-2 shadow-sm">
-                  🔥 {stats.currentStreak}일 연속 학습
-                </Badge>
-                <Badge className="bg-white text-amber-900 border-amber-300 px-4 py-2 shadow-sm">
-                  ⭐ 3개 챕터 완료
-                </Badge>
-                <Badge className="bg-white text-amber-900 border-amber-300 px-4 py-2 shadow-sm">
-                  ✅ 주간 목표 달성
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 학습 달력 */}
-        <StudyCalendar 
-          studiedDates={recentActivity.map(activity => activity.date)}
-          currentStreak={stats.currentStreak}
-        />
 
         {/* 3️⃣ 하단 탭 영역 - 활동 로그 */}
         <Card className="shadow-md">
@@ -311,9 +233,12 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
 
             <CardContent className="pt-4">
               <TabsContent value="sentence" className="mt-0 space-y-3">
-                {recentActivity
-                  .filter(activity => activity.type === 'sentence')
-                  .map((activity) => {
+                {sentenceActivity.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">문장 학습 기록이 없습니다.</p>
+                  </div>
+                ) : (
+                  sentenceActivity.map((activity) => {
                     const thisWeek = isThisWeek(activity.date);
                     return (
                       <div 
@@ -357,13 +282,17 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                         )}
                       </div>
                     );
-                  })}
+                  })
+                )}
               </TabsContent>
 
               <TabsContent value="conversation" className="mt-0 space-y-3">
-                {recentActivity
-                  .filter(activity => activity.type === 'conversation')
-                  .map((activity) => {
+                {conversationActivity.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">AI 대화 기록이 없습니다.</p>
+                  </div>
+                ) : (
+                  conversationActivity.map((activity) => {
                     const thisWeek = isThisWeek(activity.date);
                     return (
                       <div 
@@ -407,7 +336,8 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                         )}
                       </div>
                     );
-                  })}
+                  })
+                )}
               </TabsContent>
             </CardContent>
           </Tabs>
