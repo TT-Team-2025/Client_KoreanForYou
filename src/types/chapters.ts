@@ -46,5 +46,7 @@ export interface GetSentence {
   translated_content?: string | null,
   tts_url?:string | null,
   sentence_id : number,
-  created_at : DateString 
+  created_at?: DateString 
 }
+
+

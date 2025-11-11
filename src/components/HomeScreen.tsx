@@ -12,7 +12,7 @@ import { LevelBadge } from "./shared/LevelBadge";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useChapters } from "@/hooks/chapters/useChapters";
-import { useSentence } from "@/hooks/sentences/useSentence";
+import { useRandomSentence } from "@/hooks/sentences/useRandomSentece";
 import { useGetPosts } from "@/hooks/community/usePosts";
 
 interface HomeScreenProps {
@@ -28,7 +28,8 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
   const { data: chapters, isLoading: isLoadingChapters, error: chaptersError } = useChapters();
 
   // 오늘의 문장 조회 (예시로 sentenceId 1번 사용)
-  const { data: todaySentence, isLoading: isLoadingSentence } = useSentence(2);
+  const { data: todaySentence, isLoading: isLoadingSentence } =
+    useRandomSentence();
 
   // 로딩 중일 때
   if (isLoadingProfile || isLoadingStatus) {
