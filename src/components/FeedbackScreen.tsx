@@ -4,6 +4,8 @@ import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Award, TrendingUp, Volume2, CheckCircle2, AlertCircle, BookOpen, MessageSquare } from "lucide-react";
 import type { FeedbackContextType } from "../types";
+import { useSaveScenario } from "@/hooks/scenarios/useSaveScenario";
+import { toast } from "sonner";
 
 interface FeedbackScreenProps {
   onNavigate: (screen: string, data?: any) => void;
@@ -16,28 +18,31 @@ export function FeedbackScreen({ onNavigate, learningRecord }: FeedbackScreenPro
   const recordType = learningRecord?.type || 'conversation';
   const isConversation = recordType === 'conversation';
 
+  // 피드백 데이터 추출
+  const feedback = learningRecord?.feedback;
+  const detailComment = feedback?.detail_comment;
+  const metricsSummary = detailComment?.metrics_summary;
+  const sessionStats = detailComment?.session_stats;
+
+  // 시나리오 저장 hook
+  const { mutate: saveScenario, isPending: isSaving } = useSaveScenario();
+
   // 기본 세션 데이터 (AI 대화용)
   const sessionData = {
-    score: learningRecord?.score || 88,
-    duration: learningRecord?.duration || "7분 32초",
-    messageCount: 8,
-    pronunciationScore: 85,
-    fluencyScore: 90,
-    accuracyScore: learningRecord?.score || 88,
-    strengths: [
-      "자연스러운 억양",
-      "적절한 존댓말 사용",
-      "빠른 응답 속도"
-    ],
-    improvements: [
-      { text: "몇몇 단어 발음 개선 필요", severity: "medium" },
-      { text: "문장 연결이 더 자연스러울 수 있음", severity: "low" }
-    ],
-    keyPhrases: [
-      { text: "안녕하세요! 몇 분이세요?", correct: true },
-      { text: "이쪽으로 오세요", correct: true },
-      { text: "메뉴판 보시면서...", correct: false, feedback: "발음이 부정확합니다" }
-    ]
+    score: metricsSummary?.overall_score || learningRecord?.score || 0,
+    duration: learningRecord?.duration || "0분 0초",
+    messageCount: sessionStats?.turn_count || learningRecord?.messageCount || 0,
+    pronunciationScore: metricsSummary?.pronunciation_score || feedback?.pronunciation_score || 0,
+    fluencyScore: metricsSummary?.fluency_score || feedback?.fluency_score || 0,
+    accuracyScore: metricsSummary?.grammar_score || 0,
+    strengths: detailComment?.highlights || [],
+    improvements: (detailComment?.improvements || []).map((imp: string) => ({ text: imp, severity: "medium" })),
+    keyPhrases: (detailComment?.key_sentence_reviews || []).map((review: any) => ({
+      text: review.sentence,
+      correct: false,
+      feedback: `${review.issue} - ${review.suggestion}`
+    })),
+    aiComment: detailComment?.ai_comment || feedback?.comment || ""
   };
 
   // 문장 학습 데이터
@@ -145,65 +150,61 @@ export function FeedbackScreen({ onNavigate, learningRecord }: FeedbackScreenPro
             </Card>
 
             {/* Improvements */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-orange-500" />
-                  <CardTitle>개선할 점</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {sessionData.improvements.map((improvement, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                      <span>{improvement.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {sessionData.improvements.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-orange-500" />
+                    <CardTitle>개선할 점</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {sessionData.improvements.map((improvement: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
+                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                        <span>{improvement.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Key Phrases Review */}
-            <Card>
-              <CardHeader>
-                <CardTitle>주요 문장 리뷰</CardTitle>
-                <CardDescription>대화 중 사용한 중요 표현들</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {sessionData.keyPhrases.map((phrase, i) => (
-                    <div 
-                      key={i} 
-                      className={`p-4 rounded-lg border-2 ${
-                        phrase.correct 
-                          ? 'bg-green-50 border-green-200' 
-                          : 'bg-orange-50 border-orange-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            {phrase.correct ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            ) : (
+            {sessionData.keyPhrases.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>주요 문장 리뷰</CardTitle>
+                  <CardDescription>대화 중 개선이 필요한 표현들</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {sessionData.keyPhrases.map((phrase: any, i: number) => (
+                      <div
+                        key={i}
+                        className="p-4 rounded-lg border-2 bg-orange-50 border-orange-200"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
                               <AlertCircle className="w-4 h-4 text-orange-500" />
+                              <span className="font-medium">{phrase.text}</span>
+                            </div>
+                            {phrase.feedback && (
+                              <p className="text-sm text-gray-600 ml-6">{phrase.feedback}</p>
                             )}
-                            <span>{phrase.text}</span>
                           </div>
-                          {phrase.feedback && (
-                            <p className="text-sm text-gray-600 ml-6">{phrase.feedback}</p>
-                          )}
+                          <Button variant="ghost" size="icon">
+                            <Volume2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="icon">
-                          <Volume2 className="w-4 h-4" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* AI Comment */}
             <Card className="bg-green-50 border-green-200">
@@ -211,11 +212,22 @@ export function FeedbackScreen({ onNavigate, learningRecord }: FeedbackScreenPro
                 <CardTitle>AI 선생님의 코멘트</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700">
-                  전반적으로 훌륭한 대화였습니다! 존댓말을 정확하게 사용하셨고, 손님을 맞이하는 태도가 
-                  매우 자연스러웠습니다. 다음 연습에서는 조금 더 천천히 또박또박 발음하는 것을 
-                  연습해보세요. 계속 이렇게 연습하시면 곧 실전에서도 자신감 있게 대화하실 수 있을 거예요!
+                <p className="text-gray-700 whitespace-pre-line">
+                  {sessionData.aiComment || "수고하셨습니다! 계속해서 연습하면 더 나아질 거예요."}
                 </p>
+
+                {/* 강점 표시 */}
+                {sessionData.strengths.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-semibold text-green-700">잘한 점</h4>
+                    {sessionData.strengths.map((strength: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm">{strength}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>
@@ -341,12 +353,26 @@ export function FeedbackScreen({ onNavigate, learningRecord }: FeedbackScreenPro
           <Button 
             variant="outline" 
             className="flex-1"
+            disabled={isSaving || !isConversation || !learningRecord?.threadId}
             onClick={() => {
-              // 학습 기록 저장 로직
-              alert('학습 기록이 저장되었습니다!');
+              // AI 대화인 경우에만 저장 가능
+              if (isConversation && learningRecord?.threadId) {
+                saveScenario(learningRecord.threadId, {
+                  onSuccess: (data) => {
+                    toast.success('학습 기록이 저장되었습니다!', {
+                      description: data.message
+                    });
+                  },
+                  onError: (error) => {
+                    toast.error('저장 실패', {
+                      description: error.message || '학습 기록 저장에 실패했습니다.'
+                    });
+                  }
+                });
+              }
             }}
           >
-            저장하기
+            {isSaving ? '저장 중...' : '저장하기'}
           </Button>
           <Button 
             className="flex-1"

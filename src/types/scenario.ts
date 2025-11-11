@@ -47,17 +47,89 @@ export interface ScenarioProgress{
     completion_status: CompletionsStatus,
 }
 
+// 개별 턴(발화)의 상세 정보
+export interface TurnDetail {
+    recorded_at: string;
+    user_text: string;
+    scores: {
+        pronunciation: number;
+        fluency: number;
+        grammar: number | null;
+        overall: number;
+    };
+    details: {
+        pronunciation: {
+            word_count: number;
+            metrics_source: string;
+            duration_count: number;
+            average_duration: number;
+            short_duration_ratio: number;
+            long_duration_ratio: number;
+            duration_outlier_words: string[];
+        };
+        fluency: {
+            word_count: number;
+            words_per_minute: number;
+            pause_count: number;
+            average_pause: number;
+            filler_count: number;
+            speaking_duration: number;
+            total_duration: number;
+        };
+        grammar: {
+            grammar_score: number | null;
+            mistakes: string[];
+            suggestions: string[];
+        };
+        transcript: string;
+    };
+}
+
+// 주요 문장 리뷰
+export interface KeySentenceReview {
+    sentence: string;
+    issue: string;
+    suggestion: string;
+}
+
+// 피드백 상세 코멘트
+export interface DetailComment {
+    improvements: string[];
+    key_sentence_reviews: KeySentenceReview[];
+    highlights: string[];
+    ai_comment: string;
+    metrics_summary: {
+        pronunciation_score: number;
+        fluency_score: number;
+        grammar_score: number;
+        overall_score: number;
+        evaluated_turns: number;
+        word_count: number;
+        speaking_duration: number;
+        total_audio_duration: number;
+        per_turn: TurnDetail[];
+        grammar_detail: Record<string, any>;
+    };
+    session_stats: {
+        evaluated_turns: number;
+        word_count: number;
+        speaking_duration_seconds: number;
+        total_audio_duration_seconds: number;
+        turn_count: number;
+        total_time_seconds: number;
+    };
+}
+
 export interface ScenarioFeedback {
     feedback_id: number;
-    user_id?: number; // Optional: 서버에서 nullable
+    user_id?: number;
     log_id: number;
-    pronunciation_score?: number; // 발음 점수 (0-100)
-    accuracy_score?: number; // 정확도 점수 (0-100)
-    fluency_score?: number; // 유창성 점수 (0-100)
-    completeness_score?: number; // [추가] 완성도 점수 (0-100) - 서버 DB에 존재하지만 프론트 타입에 누락됨
-    total_score?: number; // 총점 (0-100)
-    comment?: string; // AI 피드백 코멘트
-    detail_comment?: string[]; // [수정] 개선 제안 사항 (string에서 string[]로 변경) - 서버에서 JSON 배열로 저장
+    pronunciation_score?: number;
+    accuracy_score?: number | null;
+    fluency_score?: number;
+    total_score?: number | null;
+    comment?: string;
+    detail_comment?: DetailComment;
     created_at: DateString;
 }
 
@@ -107,8 +179,10 @@ export interface SendVoiceMessageResponse {
 export interface EndScenarioResponse {
     thread_id: string; // OpenAI Thread ID
     completion_status: string; // 완료 상태
-    end_time?: string; // 종료 시간 (Optional)
+    end_time?: string; // 종료 시간
     turn_count: number; // 총 발화 횟수
+    total_time: number; // 총 소요 시간 (초)
+    feedback: ScenarioFeedback; // 피드백 정보
 }
 
 export interface ConversationSetup {
@@ -116,4 +190,11 @@ export interface ConversationSetup {
   userRole: string;
   aiRole: string;
   situation: string;
+}
+
+// 시나리오 저장 응답
+export interface SaveScenarioResponse {
+  success: boolean;
+  message: string;
+  thread_id: string;
 }

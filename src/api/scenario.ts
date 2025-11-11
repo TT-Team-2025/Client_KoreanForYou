@@ -88,3 +88,10 @@ export const getAudioFileUrl = (filename: string): string => {
   const baseUrl = apiClient.defaults.baseURL || '';
   return `${baseUrl}/scenarios/audio/${filename}`;
 };
+
+// 시나리오 저장하기
+export const saveScenario = async (threadId: string) => {
+  const response = await apiClient.post(`/scenarios/conversation/save/${threadId}`);
+  console.log('시나리오 저장 완료:', response.data);
+  return response.data;
+};

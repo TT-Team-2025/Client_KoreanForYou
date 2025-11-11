@@ -11,12 +11,11 @@ interface ConversationScreenProps {
   onNavigate: (screen: string) => void;
   setup: ConversationSetup;
   sessionData: StartScenarioResponse | null;
-  userName: string;
   onComplete?: (learningRecord: any) => void;
 }
 
 
-export function ConversationScreen({ onNavigate, setup, sessionData, userName, onComplete }: ConversationScreenProps) {
+export function ConversationScreen({ onNavigate, setup, sessionData, onComplete }: ConversationScreenProps) {
   const [isRecording, setIsRecording] = useState(false); // 녹음 중
   const [isMuted, setIsMuted] = useState(false); // 음소거
   const [showTranslation, setShowTranslation] = useState(false); // 번역
@@ -25,8 +24,8 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
     {
       id: 1,
       speaker: "ai",
-      text: sessionData?.assistant || CONVERSATION_TEXT.MESSAGES.DEFAULT_AI_GREETING(userName),
-      translation: CONVERSATION_TEXT.MESSAGES.DEFAULT_AI_GREETING_EN(userName),
+      text: sessionData?.assistant || "안녕하세요! 대화를 시작해볼까요?",
+      translation: "Hello! Shall we start the conversation?",
       timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -190,17 +189,23 @@ export function ConversationScreen({ onNavigate, setup, sessionData, userName, o
         onSuccess: (data) => {
           console.log('시나리오 종료 성공:', data);
 
-          // AI 대화 완료 기록 생성
+          // AI 대화 완료 기록 생성 - 실제 피드백 데이터 포함
           const conversationRecord = {
             id: Date.now(),
             type: 'conversation',
             title: setup.topic || 'AI 대화 연습',
             date: new Date().toISOString().split('T')[0],
-            duration: formatTime(elapsedTime),
-            score: 88,
+            duration: formatTime(data.total_time || elapsedTime),
+            score: data.feedback?.detail_comment?.metrics_summary?.overall_score || 0,
             messageCount: data.turn_count || messages.length,
             completionStatus: data.completion_status,
-            endTime: data.end_time
+            endTime: data.end_time,
+            // 서버에서 받은 피드백 데이터 전체 포함
+            feedback: data.feedback,
+            threadId: data.thread_id,
+            userRole: setup.userRole,
+            aiRole: setup.aiRole,
+            situation: setup.situation
           };
           console.log('AI 대화 완료 기록 확인 : ', conversationRecord)
 
