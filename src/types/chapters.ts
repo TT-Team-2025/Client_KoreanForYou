@@ -7,10 +7,11 @@ export interface Chapter {
   chapter_id: string;
   chapter_name: string;
   chapter_type: "common" | "job"; // 공통 or 직무별
-  level_id: number; // 필요 레벨
-  level_name?: string; // UI용
-  is_locked?: boolean; // 잠김 여부 (프론트 계산)
-  required_level?: string; // 필요 레벨명
+  job_id: number; // ✅ 공통=0, 직무별=1~7
+  level_id: number;
+  level_name?: string;
+  is_locked?: boolean;
+  required_level?: string;
   order_num: number;
   total_sentences?: number;
   completed_sentences?: number;
@@ -26,12 +27,11 @@ export interface Sentence {
   text_ko: string;
   text_en: string;
   text_vi?: string;
-  tts_url?: string; // 사전 생성된 TTS URL
+  tts_url?: string;
   order_num: number;
   mastery?: number; // 숙련도 (0-100)
 }
 
-// chapter내의 문장조회 (전체)
 export interface ChapterSentencesResponse {
   sentences: Sentence[];
   total: number;
@@ -39,14 +39,11 @@ export interface ChapterSentencesResponse {
   size: number;
 }
 
-// 개별 sentence조회
 export interface GetSentence {
-  chapter_id : number,
-  content:string,
-  translated_content?: string | null,
-  tts_url?:string | null,
-  sentence_id : number,
-  created_at?: DateString 
+  chapter_id: number;
+  content: string;
+  translated_content?: string | null;
+  tts_url?: string | null;
+  sentence_id: number;
+  created_at?: DateString;
 }
-
-

@@ -1,5 +1,5 @@
 // ========================================
-// 📄 ChapterListScreen.tsx (2025-11-07 수정: 홈으로 돌아가기 버튼 추가)
+// 📄 ChapterListScreen.tsx (props 전달형 완성본 + 한 줄 수정 포함)
 // ========================================
 
 import { useEffect, useState } from "react";
@@ -8,72 +8,123 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { BookOpen, Briefcase } from "lucide-react";
+import { BookOpen, Briefcase, Lock, Home } from "lucide-react";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
 
-// 서버에서 반환하는 챕터 목록의 실제 구조
 interface ChapterListItem {
   chapter_id: number;
   title: string;
   description: string;
-  category_name: string;
-  level_name: string;
-  job_name?: string;
-  total_sentences: number;
-  completed_sentences: number;
+  category_id: number;
+  level_id: number;
+  total_sentences?: number;
+  completed_sentences?: number;
+  completion_rate?: number; // 0-100 정수
 }
 
 interface ChapterListScreenProps {
-  onNavigate: (screen: string, chapterId?: number) => void;
+  onNavigate: (screen: string, data?: any) => void;
 }
+
+const JOB_NAME_MAP: Record<number, string> = {
+  1: "주방보조",
+  2: "서빙",
+  3: "바리스타",
+  4: "캐셔",
+  5: "배달",
+  6: "주방장",
+  7: "설거지",
+};
 
 export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
   const [chapters, setChapters] = useState<ChapterListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"common" | "job">("common");
+  const [showStats, setShowStats] = useState(false);
 
-  // ✅ 사용자 프로필 정보 가져오기
   const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
 
-  // ✅ 챕터 데이터 불러오기
   useEffect(() => {
-    // 사용자 프로필이 로딩 중이면 대기
-    if (isLoadingProfile || !userProfile) {
-      return;
-    }
+    if (isLoadingProfile || !userProfile?.level_id || userProfile.job_id === undefined || !userProfile.user_id) return;
 
     const fetchChapters = async () => {
       try {
-        const res = await api.get(`/chapters/`, {
-          params: {
-            category_id: 1, // 기본값 유지 (필요시 추가 정보 필요)
-            level_id: userProfile.level_id || 1,
-          },
-        });
-        console.log("📦 서버 응답:", res.data);
+        const [commonRes, jobRes] = await Promise.all([
+          api.get(`/chapters/`, {
+            params: { category_id: 0, level_id: userProfile.level_id },
+          }),
+          api.get(`/chapters/`, {
+            params: { category_id: userProfile.job_id, level_id: userProfile.level_id },
+          }),
+        ]);
 
-        const data = Array.isArray(res.data)
-          ? res.data
-          : res.data.chapters || [];
+        const commonChapters = commonRes.data?.chapters ?? [];
+        const jobChapters = jobRes.data?.chapters ?? [];
 
-        setChapters(data);
-      } catch (err) {
-        console.error("❌ 챕터 불러오기 실패:", err);
+        const allChapters = [...commonChapters, ...jobChapters];
+
+        // 각 챕터의 완료율 조회
+        const chaptersWithProgress = await Promise.all(
+          allChapters.map(async (ch) => {
+            try {
+              const progressRes = await api.get(
+                `/progress/users/${userProfile.user_id}/chapters/${ch.chapter_id}`
+              );
+              const completion_rate = progressRes.data?.data?.completion_rate ?? 0;
+
+              return {
+                ...ch,
+                completion_rate,
+                category_name:
+                  ch.category_id === 0
+                    ? "한국어 기초 표현"
+                    : `${JOB_NAME_MAP[ch.category_id] || "기타"} 직무 문장`,
+              };
+            } catch (err) {
+              // 진행률 조회 실패 시 0으로 설정
+              console.warn(`챕터 ${ch.chapter_id} 진행률 조회 실패:`, err);
+              return {
+                ...ch,
+                completion_rate: 0,
+                category_name:
+                  ch.category_id === 0
+                    ? "한국어 기초 표현"
+                    : `${JOB_NAME_MAP[ch.category_id] || "기타"} 직무 문장`,
+              };
+            }
+          })
+        );
+
+        setChapters(chaptersWithProgress);
+      } catch (err: any) {
+        console.error("❌ 챕터 불러오기 실패:", err.response || err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchChapters();
   }, [userProfile, isLoadingProfile]);
 
-  // ✅ reduce 전에 배열 확인
-  const grouped = Array.isArray(chapters)
-    ? chapters.reduce((acc: Record<string, ChapterListItem[]>, ch: ChapterListItem) => {
-        const key = ch.category_name || "기타";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(ch);
-        return acc;
-      }, {})
-    : {};
+  const commonChapters = chapters.filter((ch) => ch.category_id === 0);
+  const jobChapters = chapters.filter((ch) => ch.category_id !== 0);
+
+  const visibleChapters = activeTab === "common" ? commonChapters : jobChapters;
+
+  // 통계 계산
+  const calculateStats = (chapterList: ChapterListItem[]) => {
+    const total = chapterList.length;
+    const completed = chapterList.filter((ch) => ch.completion_rate === 100).length;
+    const inProgress = chapterList.filter((ch) => (ch.completion_rate ?? 0) > 0 && ch.completion_rate !== 100).length;
+    const notStarted = total - completed - inProgress;
+    const averageProgress = total > 0
+      ? Math.round(chapterList.reduce((sum, ch) => sum + (ch.completion_rate ?? 0), 0) / total)
+      : 0;
+
+    return { total, completed, inProgress, notStarted, averageProgress };
+  };
+
+  const stats = calculateStats(visibleChapters);
 
   if (loading || isLoadingProfile) {
     return (
@@ -83,118 +134,249 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
     );
   }
 
-  if (!Array.isArray(chapters) || chapters.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-500">
-        😢 불러올 챕터가 없습니다.
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-red-50 p-6 space-y-8">
-      {/* ✅ 상단 헤더 */}
-      <header className="max-w-4xl mx-auto flex items-center justify-between">
-        {/* 왼쪽: 제목 */}
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">문장 학습실</h1>
-          <p className="text-gray-500 text-sm">
-            직무와 레벨에 맞는 문장을 학습하세요.
-          </p>
+    <div className="min-h-screen bg-white p-6 space-y-6">
+      {/* 헤더 */}
+      <header className="max-w-4xl mx-auto flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onNavigate("home")}
+              className="flex-shrink-0"
+            >
+              <Home className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">문장 학습실</h1>
+              <p className="text-gray-500 text-sm">
+                내 직무: {JOB_NAME_MAP[userProfile?.job_id || 0] || "미지정"} / Level{" "}
+                {userProfile?.level_id}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowStats(!showStats)}
+            className="flex items-center gap-2"
+          >
+            {showStats ? "통계 숨기기" : "진행률 통계"}
+          </Button>
         </div>
-
-        {/* 오른쪽: 홈으로 돌아가기 버튼 */}
-        <Button
-          variant="outline"
-          className="text-sm"
-          onClick={() => onNavigate("home")}
-        >
-          ← 홈으로 돌아가기
-        </Button>
       </header>
 
-      {/* ✅ 그룹별 챕터 목록 */}
-      <main className="max-w-4xl mx-auto space-y-10 mt-4">
-        {Object.entries(grouped).map(([category, list]) => (
-          <section key={category} className="space-y-4">
-            {/* 카테고리 제목 */}
-            <div className="flex items-center gap-2">
-              {category.includes("직무") ? (
-                <Briefcase className="w-5 h-5 text-green-600" />
-              ) : (
-                <BookOpen className="w-5 h-5 text-blue-600" />
-              )}
-              <h2
-                className={`text-lg sm:text-xl font-semibold ${
-                  category.includes("직무") ? "text-green-700" : "text-blue-700"
+      {/* 통계 섹션 */}
+      {showStats && (
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                {activeTab === "common" ? "한국어 기초 표현" : `${JOB_NAME_MAP[userProfile?.job_id || 0]} 직무 문장`} 학습 진행률
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 원형 진행률 표시 */}
+              <div className="flex items-center justify-center py-4">
+                <div className="relative w-40 h-40">
+                  <svg className="w-40 h-40 transform -rotate-90">
+                    {/* 배경 원 */}
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="70"
+                      stroke="#e5e7eb"
+                      strokeWidth="12"
+                      fill="none"
+                    />
+                    {/* 진행률 원 */}
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="70"
+                      stroke={stats.averageProgress === 100 ? "#10b981" : "#3b82f6"}
+                      strokeWidth="12"
+                      fill="none"
+                      strokeDasharray={`${2 * Math.PI * 70}`}
+                      strokeDashoffset={`${2 * Math.PI * 70 * (1 - stats.averageProgress / 100)}`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-bold text-gray-800">{stats.averageProgress}%</span>
+                    <span className="text-sm text-gray-600">평균 진행률</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 통계 카드 */}
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-gray-700">{stats.total}</div>
+                  <div className="text-xs text-gray-500 mt-1">전체</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+                  <div className="text-xs text-green-600 mt-1">완료</div>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-blue-600">{stats.inProgress}</div>
+                  <div className="text-xs text-blue-600 mt-1">진행 중</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-gray-600">{stats.notStarted}</div>
+                  <div className="text-xs text-gray-500 mt-1">미시작</div>
+                </div>
+              </div>
+
+              {/* 진행률 막대 그래프 */}
+              <div className="space-y-2">
+                <div className="text-sm font-semibold text-gray-700">챕터별 진행률</div>
+                {visibleChapters.slice(0, 5).map((ch) => (
+                  <div key={ch.chapter_id} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600 truncate max-w-[200px]">{ch.title}</span>
+                      <span className="font-semibold text-gray-700">{ch.completion_rate ?? 0}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${
+                          (ch.completion_rate ?? 0) === 100
+                            ? "bg-green-500"
+                            : (ch.completion_rate ?? 0) >= 50
+                            ? "bg-blue-500"
+                            : "bg-gray-400"
+                        }`}
+                        style={{ width: `${ch.completion_rate ?? 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {visibleChapters.length > 5 && (
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    ...외 {visibleChapters.length - 5}개 챕터
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 탭 */}
+      <div className="max-w-4xl mx-auto flex gap-2 border-b border-gray-200">
+        <button
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg ${
+            activeTab === "common"
+              ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
+              : "text-gray-500 hover:text-blue-500"
+          }`}
+          onClick={() => setActiveTab("common")}
+        >
+          <BookOpen className="w-4 h-4" />
+          한국어 기초 표현
+        </button>
+
+        <button
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg ${
+            activeTab === "job"
+              ? "text-green-600 border-b-2 border-green-600 bg-green-50"
+              : "text-gray-500 hover:text-green-500"
+          }`}
+          onClick={() => setActiveTab("job")}
+        >
+          <Briefcase className="w-4 h-4" />
+          {JOB_NAME_MAP[userProfile?.job_id || 0] || "직무"} 직무 문장
+        </button>
+      </div>
+
+      {/* 챕터 리스트 */}
+      <main className="max-w-4xl mx-auto space-y-6 mt-2">
+        {visibleChapters.length === 0 ? (
+          <div className="text-center text-gray-500 py-10">😢 불러올 챕터가 없습니다.</div>
+        ) : (
+          visibleChapters.map((ch) => {
+            const progress = ch.completion_rate ?? 0;
+
+            const isLocked = ch.level_id > (userProfile?.level_id ?? 1);
+
+            return (
+              <Card
+                key={ch.chapter_id}
+                className={`transition border-gray-200 bg-white ${
+                  isLocked ? "opacity-60 pointer-events-none" : "hover:shadow-md"
                 }`}
               >
-                {category}
-              </h2>
-              <Badge variant="outline" className="ml-1 text-xs">
-                {list[0]?.level_name || "레벨 미정"}
-              </Badge>
-            </div>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-gray-900 text-base font-semibold">
+                      {ch.title}
+                    </CardTitle>
+                    <Badge variant="secondary" className="text-gray-600">
+                      Level {ch.level_id}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{ch.description}</p>
+                </CardHeader>
 
-            {/* 챕터 카드 목록 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {list.map((ch) => {
-                const progress =
-                  ch.total_sentences > 0
-                    ? Math.round(
-                        (ch.completed_sentences / ch.total_sentences) * 100
-                      )
-                    : 0;
+                <CardContent className="flex items-center justify-between pt-2">
+                  <div className="flex flex-col w-full">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-700">학습 진행률</span>
+                      <span className={`text-lg font-bold ${
+                        progress === 100 ? 'text-green-600' :
+                        progress >= 50 ? 'text-blue-600' :
+                        'text-gray-600'
+                      }`}>
+                        {progress}%
+                      </span>
+                    </div>
+                    <Progress value={progress} className="h-3" />
+                    {progress === 100 && (
+                      <span className="text-xs text-green-600 font-medium mt-1">
+                        ✓ 완료
+                      </span>
+                    )}
+                    {progress > 0 && progress < 100 && (
+                      <span className="text-xs text-blue-600 font-medium mt-1">
+                        진행 중
+                      </span>
+                    )}
+                  </div>
 
-                return (
-                  <Card
-                    key={ch.chapter_id}
-                    className="hover:shadow-md transition border-gray-200 bg-white"
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-gray-800 text-base font-semibold">
-                          {ch.title}
-                        </CardTitle>
-                        <Badge variant="secondary" className="text-gray-600">
-                          {ch.level_name}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {ch.description}
-                      </p>
-                    </CardHeader>
-
-                    <CardContent className="flex items-center justify-between pt-2">
-                      <div className="flex flex-col w-full">
-                        <span className="text-xs text-gray-500 mb-1">
-                          진행률 {progress}%
-                        </span>
-                        <Progress value={progress} className="h-2" />
-                        <span className="text-xs text-gray-400 mt-1">
-                          {ch.completed_sentences}/{ch.total_sentences} 문장
-                        </span>
-                      </div>
-
-                      <Button
-                        onClick={() =>
-                          onNavigate("sentenceLearning", ch.chapter_id)
-                        }
-                        className={`ml-4 px-4 ${
-                          progress > 0
-                            ? "bg-gray-700 hover:bg-gray-800"
-                            : "bg-red-500 hover:bg-red-600"
-                        } text-white`}
-                      >
-                        {progress > 0 ? "이어하기" : "시작하기"}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+                  {isLocked ? (
+                    <div className="ml-4 text-gray-400 flex items-center gap-1">
+                      <Lock className="w-4 h-4" /> 잠김
+                    </div>
+                  ) : (
+                    // ⭐⭐⭐⭐⭐ 여기가 "한 줄 수정" 포함된 최종본
+                    <Button
+                      onClick={() =>
+                        onNavigate("sentenceLearning", {
+                          chapter: {
+                            chapter_id: ch.chapter_id,
+                            category_id: ch.category_id,
+                            level_id: ch.level_id,
+                            job_id: userProfile?.job_id,
+                            title: ch.title,
+                            description: ch.description,
+                          },
+                        })
+                      }
+                      className={`ml-4 px-4 ${
+                        activeTab === "common"
+                          ? "bg-blue-500 hover:bg-blue-600"
+                          : "bg-green-500 hover:bg-green-600"
+                      } text-white`}
+                    >
+                      {progress > 0 ? "이어하기" : "시작하기"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </main>
     </div>
   );
