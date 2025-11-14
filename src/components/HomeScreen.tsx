@@ -16,6 +16,7 @@ import { useGetPosts } from "@/hooks/community/usePosts";
 import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
 import { useRecentChapterFeedbacks } from "@/hooks/chapters/useRecentChapterFeedbacks";
 import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
+import { useTranslate } from "@/hooks/useTranslate";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -31,6 +32,13 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
 
   // 오늘의 문장 조회
   const { data: todaySentence, isLoading: isLoadingSentence } = useRandomSentence();
+
+  // 문장 번역 (translated_content가 null이면 프론트에서 번역)
+  const { data: translatedText, isLoading: isTranslating } = useTranslate(
+    todaySentence?.content,
+    userProfile?.nationality,
+    !todaySentence?.translated_content // translated_content가 없을 때만 번역
+  );
 
   // 최근 학습 기록 조회 (API)
   const { data: chapterFeedbacks } = useRecentChapterFeedbacks(3);
@@ -144,7 +152,11 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                       "{todaySentence.content}"
                     </p>
                     <p className="text-center text-gray-600 mb-4">
-                      {todaySentence.translated_content || 'Translation not available'}
+                      {isTranslating ? (
+                        <span className="text-gray-400">번역 중...</span>
+                      ) : (
+                        todaySentence.translated_content || translatedText || 'Translation not available'
+                      )}
                     </p>
                     <div className="flex justify-center">
                       <Button variant="outline" className="gap-2">
