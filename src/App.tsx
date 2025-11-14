@@ -3,9 +3,6 @@ import { LandingPage } from "./components/LandingPage";
 import { LoginScreen } from "./components/LoginScreen";
 import { SignupScreen } from "./components/SignupScreen";
 import { HomeScreen } from "./components/HomeScreen";
-import { LevelTestScreen } from "./components/LevelTestScreen";
-import { LevelTestResultScreen } from "./components/LevelTestResultScreen";
-import { LevelUpScreen } from "./components/LevelUpScreen";
 import { ChapterListScreen } from "./components/ChapterListScreen";
 import { SentenceLearningScreen } from "./components/SentenceLearningScreen";
 import { PronunciationScreen } from "./components/PronunciationScreen";
@@ -19,20 +16,16 @@ import { PostDetailScreen } from "./components/PostDetailScreen";
 import { PostCreateScreen } from "./components/PostCreateScreen";
 import { MyPageScreen } from "./components/MyPageScreen";
 import { PasswordChangeScreen } from "./components/PasswordChangeScreen";
-import { LanguageSettingsScreen } from "./components/LanguageSettingsScreen";
 import { MyPostsScreen } from "./components/MyPostsScreen";
 import { MyCommentsScreen } from "./components/MyCommentsScreen";
 import { Toaster } from "./components/ui/sonner";
 import type { ConversationSetup, StartScenarioResponse } from "./types/scenario";
 
-type Screen = 
+type Screen =
   | 'landing'
-  | 'login' 
-  | 'signup' 
-  | 'home' 
-  | 'levelTest' 
-  | 'levelTestResult'
-  | 'levelUp'
+  | 'login'
+  | 'signup'
+  | 'home'
   | 'chapterList'
   | 'sentenceLearning'
   | 'pronunciation'
@@ -46,7 +39,6 @@ type Screen =
   | 'postCreate'
   | 'mypage'
   | 'passwordChange'
-  | 'languageSettings'
   | 'myPosts'
   | 'myComments';
 
@@ -135,12 +127,6 @@ export default function App() {
         return <SignupScreen onNavigate={handleNavigate} />;
       case 'home':
         return <HomeScreen onNavigate={handleNavigate} onSelectLearningRecord={handleSelectLearningRecord} />;
-      case 'levelTest':
-        return <LevelTestScreen onNavigate={handleNavigate} />;
-      case 'levelTestResult':
-        return <LevelTestResultScreen onNavigate={handleNavigate} />;
-      case 'levelUp':
-        return <LevelUpScreen onNavigate={handleNavigate} newLevel={2} previousLevel={1} />;
       case 'chapterList':
         return <ChapterListScreen onNavigate={handleNavigate} />;
       case 'sentenceLearning':
@@ -179,8 +165,6 @@ export default function App() {
         return <MyPageScreen onNavigate={handleNavigate} />;
       case 'passwordChange':
         return <PasswordChangeScreen onNavigate={handleNavigate} />;
-      case 'languageSettings':
-        return <LanguageSettingsScreen onNavigate={handleNavigate} />;
       case 'myPosts':
         return <MyPostsScreen onNavigate={handleNavigate} />;
       case 'myComments':
