@@ -12,6 +12,7 @@ import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
 import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
+import { useRecentChapterFeedbacks } from "@/hooks/chapters/useRecentChapterFeedbacks";
 
 interface ProgressScreenProps {
   onNavigate: (screen: string) => void;
@@ -25,6 +26,7 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
   const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
   const { data: userCountSpeech, isLoading: isLoadingSpeechCount } = useSpeechCount();
   const { data: scenarioHistory, isLoading: isLoadingHistory } = useScenarioHistory();
+  const { data: chapterFeedbacks } = useRecentChapterFeedbacks(10);
 
   const handleBackClick = () => {
     if (onBack) {
@@ -78,63 +80,20 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
     completion_status: item.completion_status,
   })) || [];
 
-  // TODO: 문장 학습 기록 API 연동 필요 - 현재는 더미 데이터 사용
-  const sentenceActivity = [
-    {
-      id: 2,
-      date: "2025-10-19",
-      type: "sentence",
-      title: "기본 인사·상태",
-      progress: 100,
-      completedSentences: 10,
-      totalSentences: 10
-    },
-    {
-      id: 4,
-      date: "2025-10-18",
-      type: "sentence",
-      title: "요청·부탁",
-      progress: 80,
-      completedSentences: 8,
-      totalSentences: 10
-    },
-    {
-      id: 5,
-      date: "2025-10-17",
-      type: "sentence",
-      title: "감사·사과",
-      progress: 100,
-      completedSentences: 12,
-      totalSentences: 12
-    },
-    {
-      id: 7,
-      date: "2025-10-13",
-      type: "sentence",
-      title: "위치·방향",
-      progress: 60,
-      completedSentences: 6,
-      totalSentences: 10
-    },
-    {
-      id: 9,
-      date: "2025-10-10",
-      type: "sentence",
-      title: "시간·날짜",
-      progress: 100,
-      completedSentences: 8,
-      totalSentences: 8
-    },
-    {
-      id: 11,
-      date: "2025-10-08",
-      type: "sentence",
-      title: "주문받기",
-      progress: 100,
-      completedSentences: 15,
-      totalSentences: 15
-    },
-  ];
+  // 문장 학습 기록 (API에서 가져옴)
+  const sentenceActivity = chapterFeedbacks?.map(item => ({
+    id: item.feedback_id,
+    date: item.completed_date,
+    type: "sentence",
+    title: item.chapter_title,
+    progress: item.total_sentences > 0
+      ? Math.round((item.completed_sentences / item.total_sentences) * 100)
+      : 0,
+    completedSentences: item.completed_sentences,
+    totalSentences: item.total_sentences,
+    score: item.total_score,
+    chapter_id: item.chapter_id,
+  })) || [];
 
   const handleRecordClick = (record: any) => {
     if (onSelectLearningRecord) {

@@ -6,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import {
   TrendingUp,
@@ -19,6 +18,7 @@ import {
 import type { FeedbackContextType } from "../types";
 import { useSaveScenario } from "@/hooks/scenarios/useSaveScenario";
 import { useScenarioFeedback } from "@/hooks/scenarios/useScenarioFeedback";
+import { useChapterFeedback } from "@/hooks/chapters/useChapterFeedback";
 import { toast } from "sonner";
 
 interface FeedbackScreenProps {
@@ -39,6 +39,11 @@ export function FeedbackScreen({
   const progressId = learningRecord?.progress_id;
   const { data: fetchedFeedbackData, isLoading: isLoadingFeedback } =
     useScenarioFeedback(isConversation ? progressId : undefined);
+
+  /** 2-2) chapter_id로 피드백 조회 (문장 학습인 경우) */
+  const chapterId = learningRecord?.chapter_id;
+  const { data: chapterFeedbackData, isLoading: isLoadingChapterFeedback } =
+    useChapterFeedback(!isConversation ? chapterId : undefined);
 
   /** 3) 시나리오 저장 훅 (모든 hook은 조건문 이전에 호출) */
   const { mutate: saveScenario, isPending: isSaving } = useSaveScenario();
@@ -69,7 +74,7 @@ export function FeedbackScreen({
       : "수고하셨습니다. 학습 결과를 확인하세요");
 
   /** 7) 로딩 중 */
-  if (isConversation && isLoadingFeedback) {
+  if ((isConversation && isLoadingFeedback) || (!isConversation && isLoadingChapterFeedback)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
@@ -82,11 +87,18 @@ export function FeedbackScreen({
 
   /** 8) 소요 시간 포맷터 */
   const formatDuration = (seconds?: number) => {
-    if (!seconds && seconds !== 0) return "0분 0초";
+    if (!seconds && seconds !== 0) return "0초";
     const s = Math.max(0, Math.floor(Number(seconds) || 0));
+
+    // 60초 미만: 초 단위만 표시
+    if (s < 60) {
+      return `${s}초`;
+    }
+
+    // 60초 이상: 분 단위로 표시
     const mins = Math.floor(s / 60);
     const secs = s % 60;
-    return `${mins}분 ${secs}초`;
+    return secs > 0 ? `${mins}분 ${secs}초` : `${mins}분`;
   };
 
   /** 9) 세션 데이터 매핑 (빈값 안전) */
@@ -119,30 +131,21 @@ export function FeedbackScreen({
       feedback?.ai_comment ?? detailComment?.ai_comment ?? "수고하셨습니다!",
   };
 
-  /** 10) 문장 학습 데이터 (샘플/백업) */
+  /** 10) 문장 학습 데이터 (API에서 가져옴) */
   const sentenceData = {
-    title: learningRecord?.title || "기본 인사·상태",
-    progress: learningRecord?.progress ?? 100,
-    completedSentences: learningRecord?.completedSentences ?? 10,
-    totalSentences: learningRecord?.totalSentences ?? 10,
-    date: learningRecord?.date || "2025-10-14",
-    masteredSentences: learningRecord?.masteredSentences ?? [
-      { text: "안녕하세요.", translation: "Hello.", mastery: 100 },
-      {
-        text: "처음 뵙겠습니다.",
-        translation: "Nice to meet you.",
-        mastery: 100,
-      },
-      { text: "잘 지내세요?", translation: "How are you?", mastery: 95 },
-    ],
-    practicedSentences: learningRecord?.practicedSentences ?? [
-      {
-        text: "오늘도 안녕하세요.",
-        translation: "Hello today as well.",
-        mastery: 80,
-      },
-      { text: "괜찮으세요?", translation: "Are you okay?", mastery: 75 },
-    ],
+    title: learningRecord?.title || chapterFeedbackData?.chapter_id?.toString() || "챕터 학습",
+    progress: chapterFeedbackData?.total_sentences
+      ? Math.round((chapterFeedbackData.completed_sentences / chapterFeedbackData.total_sentences) * 100)
+      : learningRecord?.progress ?? 0,
+    completedSentences: chapterFeedbackData?.completed_sentences ?? learningRecord?.completedSentences ?? 0,
+    totalSentences: chapterFeedbackData?.total_sentences ?? learningRecord?.totalSentences ?? 0,
+    date: learningRecord?.date || chapterFeedbackData?.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+    totalScore: chapterFeedbackData?.total_score,
+    pronunciationScore: chapterFeedbackData?.pronunciation_score,
+    accuracyScore: chapterFeedbackData?.accuracy_score,
+    summaryFeedback: chapterFeedbackData?.summary_feedback,
+    weaknesses: chapterFeedbackData?.weaknesses || [],
+    duration: formatDuration(chapterFeedbackData?.total_time), // AI 대화와 동일하게 처리
   };
 
   return (
@@ -192,20 +195,20 @@ export function FeedbackScreen({
             ) : (
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-4xl mb-1">{sentenceData.progress}%</div>
-                  <div className="text-sm text-blue-100">진행률</div>
-                </div>
-                <div>
-                  <div className="text-4xl mb-1">
-                    {sentenceData.completedSentences}
-                  </div>
-                  <div className="text-sm text-blue-100">완료 문장</div>
+                  <div className="text-4xl mb-1">{sentenceData.totalScore || 0}</div>
+                  <div className="text-sm text-blue-100">총점</div>
                 </div>
                 <div>
                   <div className="text-4xl mb-1">
                     {sentenceData.totalSentences}
                   </div>
-                  <div className="text-sm text-blue-100">총 문장</div>
+                  <div className="text-sm text-blue-100">문장 개수</div>
+                </div>
+                <div>
+                  <div className="text-4xl mb-1">
+                    {sentenceData.duration}
+                  </div>
+                  <div className="text-sm text-blue-100">소요 시간</div>
                 </div>
               </div>
             )}
@@ -344,98 +347,66 @@ export function FeedbackScreen({
         {/* 문장 학습 세부 결과 */}
         {!isConversation && (
           <>
-            {/* Mastered Sentences */}
-            {sentenceData.masteredSentences.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    <CardTitle>완벽하게 익힌 문장</CardTitle>
+            {/* Detailed Scores */}
+            <Card>
+              <CardHeader>
+                <CardTitle>학습 성과</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sentenceData.totalScore !== undefined && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">종합 점수</span>
+                      <span className="text-lg font-bold text-blue-600">{sentenceData.totalScore}점</span>
+                    </div>
+                    <Progress value={sentenceData.totalScore} className="h-3" />
                   </div>
-                  <CardDescription>
-                    {sentenceData.masteredSentences.length}개 문장
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {sentenceData.masteredSentences.map((sentence, i) => (
-                      <div
-                        key={i}
-                        className="p-4 bg-green-50 rounded-lg border-2 border-green-200"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <CheckCircle2 className="w-4 h-4 text-green-500" />
-                              <span>{sentence.text}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 ml-6">
-                              {sentence.translation}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="default" className="bg-green-500">
-                              {sentence.mastery}점
-                            </Badge>
-                            <Button variant="ghost" size="icon">
-                              <Volume2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                )}
+                {sentenceData.pronunciationScore !== undefined && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span>발음 정확도</span>
+                      <span>{sentenceData.pronunciationScore}점</span>
+                    </div>
+                    <Progress value={sentenceData.pronunciationScore} />
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+                {sentenceData.accuracyScore !== undefined && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span>인식 정확도</span>
+                      <span>{sentenceData.accuracyScore}점</span>
+                    </div>
+                    <Progress value={sentenceData.accuracyScore} />
+                  </div>
+                )}
+                {sentenceData.totalTime !== undefined && (
+                  <div className="flex items-center justify-between text-sm text-gray-600 pt-2 border-t">
+                    <span>총 학습 시간</span>
+                    <span>{Math.floor(sentenceData.totalTime / 60)}분 {sentenceData.totalTime % 60}초</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Practiced Sentences */}
-            {sentenceData.practicedSentences.length > 0 && (
+            {/* Weaknesses/Improvements */}
+            {sentenceData.weaknesses && sentenceData.weaknesses.length > 0 && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-orange-500" />
-                    <CardTitle>연습이 더 필요한 문장</CardTitle>
+                    <CardTitle>개선할 점</CardTitle>
                   </div>
-                  <CardDescription>
-                    조금 더 연습하면 완벽해질 거예요!
-                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {sentenceData.practicedSentences.map((sentence, i) => (
+                  <div className="space-y-2">
+                    {sentenceData.weaknesses.map((weakness: string, i: number) => (
                       <div
                         key={i}
-                        className="p-4 bg-orange-50 rounded-lg border-2 border-orange-200"
+                        className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <AlertCircle className="w-4 h-4 text-orange-500" />
-                              <span>{sentence.text}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 ml-6">
-                              {sentence.translation}
-                            </p>
-                            <div className="mt-2 ml-6">
-                              <Progress
-                                value={sentence.mastery}
-                                className="h-2"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="secondary"
-                              className="bg-orange-100"
-                            >
-                              {sentence.mastery}점
-                            </Badge>
-                            <Button variant="ghost" size="icon">
-                              <Volume2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
+                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                        <span>{weakness}</span>
                       </div>
                     ))}
                   </div>
@@ -443,78 +414,89 @@ export function FeedbackScreen({
               </Card>
             )}
 
-            {/* AI Feedback */}
-            <Card className="bg-blue-50 border-blue-200">
-              <CardHeader>
-                <CardTitle>AI 선생님의 피드백</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 mb-3">
-                  {sentenceData.masteredSentences.length ===
-                  sentenceData.totalSentences
-                    ? `완벽합니다! 모든 문장을 훌륭하게 익히셨네요. 이제 실전에서도 자신있게 사용하실 수 있을 거예요!`
-                    : sentenceData.masteredSentences.length >
-                      sentenceData.totalSentences / 2
-                    ? `잘하고 계십니다! ${
-                        sentenceData.masteredSentences.length
-                      }개 문장을 완벽하게 익히셨어요. ${
-                        sentenceData.practicedSentences.length > 0
-                          ? "조금만 더 연습하면 모든 문장을 완벽하게 말할 수 있을 거예요!"
-                          : ""
-                      }`
-                    : `좋은 시작입니다! ${sentenceData.completedSentences}개 문장을 연습하셨네요. 꾸준히 반복하면 더 자연스럽게 말할 수 있게 됩니다.`}
-                </p>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
-                    <span className="text-sm">
-                      매일 10분씩 반복해서 연습하세요
-                    </span>
+            {/* AI Summary Feedback */}
+            {sentenceData.summaryFeedback && (
+              <Card className="bg-blue-50 border-blue-200">
+                <CardHeader>
+                  <CardTitle>AI 선생님의 피드백</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-700 whitespace-pre-line">
+                    {sentenceData.summaryFeedback}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Default encouragement if no summary feedback */}
+            {!sentenceData.summaryFeedback && (
+              <Card className="bg-blue-50 border-blue-200">
+                <CardHeader>
+                  <CardTitle>AI 선생님의 피드백</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-700 mb-3">
+                    {sentenceData.progress === 100
+                      ? `완벽합니다! 모든 문장을 훌륭하게 익히셨네요. 이제 실전에서도 자신있게 사용하실 수 있을 거예요!`
+                      : sentenceData.progress >= 50
+                      ? `잘하고 계십니다! ${sentenceData.completedSentences}개 문장을 완벽하게 익히셨어요. 조금만 더 연습하면 모든 문장을 완벽하게 말할 수 있을 거예요!`
+                      : `좋은 시작입니다! ${sentenceData.completedSentences}개 문장을 연습하셨네요. 꾸준히 반복하면 더 자연스럽게 말할 수 있게 됩니다.`}
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
+                      <span className="text-sm">
+                        매일 10분씩 반복해서 연습하세요
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
+                      <span className="text-sm">
+                        실제 상황을 상상하며 소리내어 읽어보세요
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
+                      <span className="text-sm">
+                        AI 말하기 연습실에서 실전처럼 연습해보세요
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
-                    <span className="text-sm">
-                      실제 상황을 상상하며 소리내어 읽어보세요
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
-                    <span className="text-sm">
-                      AI 말하기 연습실에서 실전처럼 연습해보세요
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            className="flex-1"
-            disabled={isSaving || !isConversation || !threadId}
-            onClick={() => {
-              if (isConversation && threadId) {
-                saveScenario(threadId, {
-                  onSuccess: (data: any) => {
-                    toast.success("학습 기록이 저장되었습니다!", {
-                      description: data?.message || "성공적으로 저장되었어요.",
-                    });
-                  },
-                  onError: (error: any) => {
-                    toast.error("저장 실패", {
-                      description:
-                        error?.message || "학습 기록 저장에 실패했습니다.",
-                    });
-                  },
-                });
-              }
-            }}
-          >
-            {isSaving ? "저장 중..." : "저장하기"}
-          </Button>
+          {/* 저장하기 버튼 - AI 대화에만 표시 */}
+          {isConversation && (
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={isSaving || !threadId}
+              onClick={() => {
+                if (threadId) {
+                  saveScenario(threadId, {
+                    onSuccess: (data: any) => {
+                      toast.success("학습 기록이 저장되었습니다!", {
+                        description: data?.message || "성공적으로 저장되었어요.",
+                      });
+                    },
+                    onError: (error: any) => {
+                      toast.error("저장 실패", {
+                        description:
+                          error?.message || "학습 기록 저장에 실패했습니다.",
+                      });
+                    },
+                  });
+                }
+              }}
+            >
+              {isSaving ? "저장 중..." : "저장하기"}
+            </Button>
+          )}
 
           <Button
             className="flex-1"
@@ -539,14 +521,10 @@ export function FeedbackScreen({
           variant="ghost"
           className="w-full"
           onClick={() => {
-            if (isConversation) {
-              onNavigate("home");
-            } else {
-              onNavigate("chapterList");
-            }
+            onNavigate("home");
           }}
         >
-          {isConversation ? "홈으로 돌아가기" : "학습실로 돌아가기"}
+          홈으로 돌아가기
         </Button>
       </main>
     </div>

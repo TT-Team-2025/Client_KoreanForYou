@@ -1,5 +1,9 @@
 // 데이터베이스 스키마 기반 타입 정의
 
+// 📦 새로운 타입 모듈 export
+export * from './progress';
+export * from './feedback';
+
 /**
  * 레벨 시스템
  */

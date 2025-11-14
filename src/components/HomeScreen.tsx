@@ -14,6 +14,8 @@ import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useRandomSentence } from "@/hooks/sentences/useRandomSentece";
 import { useGetPosts } from "@/hooks/community/usePosts";
 import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
+import { useRecentChapterFeedbacks } from "@/hooks/chapters/useRecentChapterFeedbacks";
+import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -30,6 +32,10 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
   // 오늘의 문장 조회
   const { data: todaySentence, isLoading: isLoadingSentence } = useRandomSentence();
 
+  // 최근 학습 기록 조회 (API)
+  const { data: chapterFeedbacks } = useRecentChapterFeedbacks(3);
+  const { data: scenarioHistory } = useScenarioHistory();
+
   // 로딩 중일 때
   if (isLoadingProfile || isLoadingStatus) {
     return (
@@ -42,40 +48,35 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
     );
   }
 
-  // 최근 학습 기록 데이터
-  const recentRecords = [
-    { 
-      id: 1, 
-      type: 'conversation', 
-      title: '매장에서 손님응대', 
-      date: '2025-10-14', 
-      score: 88,
-      duration: '7분 32초',
-      userRole: '서버',
-      aiRole: '손님',
-      situation: '손님이 메뉴를 주문하는 상황'
-    },
-    { 
-      id: 2, 
-      type: 'sentence', 
-      title: '기본 인사·상태', 
-      date: '2025-10-13', 
-      progress: 100,
-      completedSentences: 10,
-      totalSentences: 10
-    },
-    { 
-      id: 3, 
-      type: 'conversation', 
-      title: '주방에서 셰프와 대화', 
-      date: '2025-10-12', 
-      score: 92,
-      duration: '5분 18초',
-      userRole: '주방보조',
-      aiRole: '주방장',
-      situation: '오늘의 재료 준비 상황 보고'
-    },
-  ];
+  // 최근 학습 기록 데이터 (API에서 가져옴)
+  const sentenceRecords = chapterFeedbacks?.map(item => ({
+    id: item.feedback_id,
+    type: 'sentence' as const,
+    title: item.chapter_title,
+    date: item.completed_date,
+    progress: item.total_sentences > 0
+      ? Math.round((item.completed_sentences / item.total_sentences) * 100)
+      : 0,
+    completedSentences: item.completed_sentences,
+    totalSentences: item.total_sentences,
+    score: item.total_score,
+    chapter_id: item.chapter_id,
+  })) || [];
+
+  const conversationRecords = scenarioHistory?.data?.slice(0, 3).map(item => ({
+    id: item.progress_id,
+    type: 'conversation' as const,
+    title: item.title,
+    date: item.date,
+    score: 85, // TODO: API에 점수 필드 추가 필요
+    description: item.description,
+    completion_status: item.completion_status,
+  })) || [];
+
+  // 두 배열을 합치고 날짜순으로 정렬
+  const recentRecords = [...sentenceRecords, ...conversationRecords]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
 
   const handleRecordClick = (record: any) => {
     if (onSelectLearningRecord) {
