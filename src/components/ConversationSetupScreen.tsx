@@ -9,6 +9,7 @@ import { ConversationSetup, StartScenarioResponse } from "@/types/scenario";
 import { validateConversationSetup } from "@/utils/conversationValidation";
 import { CONVERSATION_SETUP_TEXT, SITUATION_TEXTAREA_ROWS } from "@/constants/conversationSetup";
 import { useStartScenario } from "@/hooks/scenarios/useStartScenario";
+import { LoadingOverlay } from "./LoadingOverlay";
 
 interface ConversationSetupScreenProps {
   onNavigate: (screen: string) => void;
@@ -62,6 +63,9 @@ export function ConversationSetupScreen({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* 대화 시작 중 로딩 오버레이 */}
+      {isPending && <LoadingOverlay message="대화를 시작하는 중입니다..." />}
+
       {/* Header */}
       <header className="bg-white border-b px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-3">

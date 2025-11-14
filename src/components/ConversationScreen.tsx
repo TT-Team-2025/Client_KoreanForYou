@@ -4,8 +4,10 @@ import { Mic, Languages, PhoneOff } from "lucide-react";
 import { ConversationSetup, StartScenarioResponse, Message } from "@/types/scenario";
 import { getAudioFileUrl } from "@/api/scenario";
 import { useSendVoiceMessage } from "@/hooks/scenarios/useSendVoiceMessage";
+import { useSendMessage } from "@/hooks/scenarios/useSendMessage";
 import { useEndScenario } from "@/hooks/scenarios/useEndScenario";
 import { CONVERSATION_TEXT } from "@/constants/conversation";
+import { LoadingOverlay } from "./LoadingOverlay";
 
 interface ConversationScreenProps {
   onNavigate: (screen: string) => void;
@@ -20,6 +22,8 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
   const [isMuted, setIsMuted] = useState(false); // 음소거
   const [showTranslation, setShowTranslation] = useState(false); // 번역
   const [elapsedTime, setElapsedTime] = useState(0); // 타이머
+  const [isAIResponding, setIsAIResponding] = useState(false); // AI 응답 대기 중
+  const [isSTTProcessing, setIsSTTProcessing] = useState(false); // STT 변환 중
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -32,10 +36,12 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null); // 현재 재생 중인 TTS 오디오
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
   const { mutate: sendVoice, isPending: isSendingVoice } = useSendVoiceMessage();
+  const { mutate: sendMessage, isPending: isSendingMessage } = useSendMessage();
   const { mutate: endScenario, isPending: isEndingScenario } = useEndScenario();
 
   // Play initial TTS audio
@@ -44,14 +50,20 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
       const audioUrl = getAudioFileUrl(sessionData.tts_filename);
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
+      currentAudioRef.current = audio;
 
       audio.play().catch(error => {
         console.error('TTS 재생 실패:', error);
       });
 
+      audio.onended = () => {
+        currentAudioRef.current = null;
+      };
+
       return () => {
         audio.pause();
         audio.src = '';
+        currentAudioRef.current = null;
       };
     }
   }, [sessionData, isMuted]);
@@ -84,6 +96,13 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
         mediaRecorderRef.current.stop();
       }
     } else {
+      // 녹음 시작 - 현재 재생 중인 모든 TTS 오디오 중지
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current = null;
+      }
+
       // 녹음 시작
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -121,44 +140,77 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
             threadId: sessionData.session_id
           });
 
-          // 음성 파일 전송
+          // 1단계: 음성 파일을 STT로 변환
+          setIsSTTProcessing(true);
+
           sendVoice(
             {
               thread_id: sessionData.session_id,
               file: audioFile
             },
             {
-              onSuccess: (data) => {
+              onSuccess: (sttData) => {
+                // STT 로딩 종료
+                setIsSTTProcessing(false);
+
                 // 사용자 메시지 추가 (STT 결과)
                 const userMessage: Message = {
                   id: Date.now(),
                   speaker: "user",
-                  text: data.user_text,
+                  text: sttData.user_text,
                   translation: "", // 번역은 필요시 추가
                   timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
                 };
                 setMessages(prev => [...prev, userMessage]);
 
-                // AI 응답 메시지 추가
-                const aiMessage: Message = {
-                  id: Date.now() + 1,
-                  speaker: "ai",
-                  text: data.assistant,
-                  translation: "",
-                  timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-                };
-                setMessages(prev => [...prev, aiMessage]);
+                // AI 응답 로딩 시작
+                setIsAIResponding(true);
 
-                // AI 응답 TTS 재생
-                if (data.tts_filename && !isMuted) {
-                  const audioUrl = getAudioFileUrl(data.tts_filename);
-                  const audio = new Audio(audioUrl);
-                  audio.play().catch(error => {
-                    console.error(CONVERSATION_TEXT.CONSOLE.TTS_PLAY_FAILED, error);
-                  });
-                }
+                // 2단계: STT 결과를 AI에게 전송하여 응답 받기
+                sendMessage(
+                  {
+                    thread_id: sessionData.session_id,
+                    message: sttData.user_text
+                  },
+                  {
+                    onSuccess: (aiData) => {
+                      // AI 응답 로딩 종료
+                      setIsAIResponding(false);
+
+                      // AI 응답 메시지 추가
+                      const aiMessage: Message = {
+                        id: Date.now() + 1,
+                        speaker: "ai",
+                        text: aiData.assistant,
+                        translation: "",
+                        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+                      };
+                      setMessages(prev => [...prev, aiMessage]);
+
+                      // AI 응답 TTS 재생
+                      if (aiData.tts_filename && !isMuted) {
+                        const audioUrl = getAudioFileUrl(aiData.tts_filename);
+                        const audio = new Audio(audioUrl);
+                        currentAudioRef.current = audio;
+
+                        audio.play().catch(error => {
+                          console.error(CONVERSATION_TEXT.CONSOLE.TTS_PLAY_FAILED, error);
+                        });
+
+                        audio.onended = () => {
+                          currentAudioRef.current = null;
+                        };
+                      }
+                    },
+                    onError: (error) => {
+                      setIsAIResponding(false);
+                      alert(`AI 응답 받기 실패: ${error.message}`);
+                    }
+                  }
+                );
               },
               onError: (error) => {
+                setIsSTTProcessing(false);
                 alert(`음성 전송 실패: ${error.message}`);
               }
             }
@@ -179,6 +231,24 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
 
   const handleEndConversation = () => {
     if (!sessionData) return;
+
+    // 사용자 발화 횟수 계산 (첫 AI 메시지 제외)
+    const userMessageCount = messages.filter(msg => msg.speaker === 'user').length;
+
+    // 5문장 미만 발화 시 확인 메시지
+    if (userMessageCount < 5) {
+      const confirmEnd = window.confirm(
+        `현재 ${userMessageCount}번 발화하셨습니다.\n5번 이상 발화해야 학습 기록이 저장됩니다.\n\n그래도 종료하시겠습니까?`
+      );
+      if (!confirmEnd) return;
+    }
+
+    // 현재 재생 중인 TTS 완전 종료
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
 
     // 시나리오 종료 API 호출
     endScenario(
@@ -227,6 +297,12 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
     <div className="min-h-screen relative flex flex-col" style={{
       background: 'linear-gradient(180deg, #3a3a3c 0%, #2d3561 70%, #3d4578 100%)'
     }}>
+      {/* 종료 중 로딩 오버레이 */}
+      {isEndingScenario && <LoadingOverlay message="대화를 종료하는 중입니다..." />}
+
+      {/* STT 처리 중 로딩 오버레이 */}
+      {isSTTProcessing && <LoadingOverlay message="음성을 인식하는 중입니다..." />}
+
       {/* Header */}
       <header className="flex items-center justify-center px-5 pt-4 pb-4 relative">
         <div className="absolute left-5">
@@ -295,6 +371,22 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
               </div>
             </div>
           ))}
+
+          {/* AI 응답 로딩 중 표시 */}
+          {isAIResponding && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] items-start flex flex-col gap-1">
+                <div className="px-4 py-3 rounded-2xl bg-white/20 text-white">
+                  <div className="flex gap-1">
+                    <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                    <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                    <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </main>
@@ -305,11 +397,11 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
           {/* Microphone Button */}
           <Button
             onClick={handleRecord}
-            disabled={isMuted || isSendingVoice}
+            disabled={isMuted || isSendingVoice || isSendingMessage}
             className={`w-16 h-16 rounded-full transition-all ${
               isRecording
                 ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                : isSendingVoice
+                : isSendingVoice || isSendingMessage
                 ? 'bg-blue-400 opacity-70'
                 : 'bg-white/20 hover:bg-white/30 border-2 border-white'
             }`}

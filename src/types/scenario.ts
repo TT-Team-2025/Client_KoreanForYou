@@ -165,14 +165,16 @@ export interface StartScenarioResponse {
 }
 
 
-export interface SendMessageResponse {
-    assistant: string; // AI 응답 메시지
+
+
+// STT 전용 응답 (음성 -> 텍스트 변환)
+export interface SendVoiceMessageResponse {
+    user_text: string; // STT로 변환된 사용자 음성 텍스트
 }
 
-
-export interface SendVoiceMessageResponse {
-    assistant: string; // AI 응답 텍스트
-    user_text: string; // STT로 변환된 사용자 음성 텍스트
+// AI 메시지 응답 (텍스트 -> AI 응답)
+export interface SendMessageResponse {
+    assistant: string; // AI 응답 메시지
     tts_filename?: string; // AI 응답의 TTS 오디오 파일명 (Optional)
 }
 
@@ -220,3 +222,4 @@ export interface ScenarioHistoryResponse extends BaseResponse<ScenarioHistoryIte
     message: string;
     data: ScenarioHistoryItem[];
 }
+
