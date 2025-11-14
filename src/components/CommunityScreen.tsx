@@ -1,116 +1,34 @@
+import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
-import { ArrowLeft, Search, Plus, Pin, MessageSquare, Eye, ThumbsUp } from "lucide-react";
+import { ArrowLeft, Search, Plus, MessageSquare, Eye, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Navigation } from "./Navigation";
+import { useGetPosts } from "@/hooks/community/usePosts";
+import { PostCategory, type Post } from "@/types/community";
 
 interface CommunityScreenProps {
-  onNavigate: (screen: string) => void;
+  onNavigate: (screen: string, data?: any) => void;
   onBack?: (defaultScreen: string) => void;
 }
-
-const pinnedPosts = [
-  {
-    id: 1,
-    title: "2025년 최저시급 및 근로 조건 안내",
-    category: "공지",
-    author: "관리자",
-    views: 1245,
-    likes: 89,
-    comments: 23,
-    isPinned: true
-  },
-  {
-    id: 2,
-    title: "외국인 근로자 주휴수당 완벽 가이드",
-    category: "생활정보",
-    author: "관리자",
-    views: 987,
-    likes: 156,
-    comments: 45,
-    isPinned: true
-  }
-];
-
-const posts = {
-  all: [
-    {
-      id: 3,
-      title: "손님이 화났을 때 어떻게 말해야 하나요?",
-      category: "Q&A",
-      author: "김민수",
-      views: 234,
-      likes: 12,
-      comments: 8,
-      time: "2시간 전"
-    },
-    {
-      id: 4,
-      title: "한국 식당에서 자주 쓰는 표현 정리해봤어요",
-      category: "정보공유",
-      author: "이수진",
-      views: 189,
-      likes: 34,
-      comments: 15,
-      time: "5시간 전"
-    },
-    {
-      id: 5,
-      title: "신분증 재발급 어디서 하나요?",
-      category: "생활정보",
-      author: "응우옌",
-      views: 156,
-      likes: 8,
-      comments: 12,
-      time: "1일 전"
-    },
-  ],
-  qna: [
-    {
-      id: 3,
-      title: "손님이 화났을 때 어떻게 말해야 하나요?",
-      category: "Q&A",
-      author: "김민수",
-      views: 234,
-      likes: 12,
-      comments: 8,
-      time: "2시간 전"
-    },
-  ],
-  info: [
-    {
-      id: 4,
-      title: "한국 식당에서 자주 쓰는 표현 정리해봤어요",
-      category: "정보공유",
-      author: "이수진",
-      views: 189,
-      likes: 34,
-      comments: 15,
-      time: "5시간 전"
-    },
-    {
-      id: 5,
-      title: "신분증 재발급 어디서 하나요?",
-      category: "생활정보",
-      author: "응우옌",
-      views: 156,
-      likes: 8,
-      comments: 12,
-      time: "1일 전"
-    },
-  ]
-};
 
 const categoryColors: { [key: string]: string } = {
   "공지": "bg-red-100 text-red-700 border-red-200",
   "Q&A": "bg-blue-100 text-blue-700 border-blue-200",
   "정보공유": "bg-green-100 text-green-700 border-green-200",
-  "생활정보": "bg-purple-100 text-purple-700 border-purple-200"
+  "생활정보": "bg-purple-100 text-purple-700 border-purple-200",
+  "자유게시판": "bg-yellow-100 text-yellow-700 border-yellow-200",
+  "취업정보": "bg-indigo-100 text-indigo-700 border-indigo-200"
 };
 
 export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  // React Query로 게시글 목록 가져오기
+  const { data: postsData, isLoading, error } = useGetPosts();
+
   const handleBackClick = () => {
     if (onBack) {
       onBack('home');
@@ -119,26 +37,47 @@ export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
     }
   };
 
-  const PostCard = ({ post, isPinned = false }: { post: any; isPinned?: boolean }) => (
-    <Card 
-      className={`cursor-pointer hover:shadow-md transition-shadow ${isPinned ? 'bg-yellow-50 border-yellow-200' : ''}`}
-      onClick={() => onNavigate('postDetail')}
+  // 카테고리별 필터링
+  const filteredPosts = useMemo(() => {
+    if (!postsData?.posts) return [];
+
+    let posts = postsData.posts;
+
+    // 검색어 필터링
+    if (searchQuery) {
+      posts = posts.filter(post =>
+        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.content.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // 카테고리 필터링
+    if (selectedCategory !== "all") {
+      posts = posts.filter(post => post.category === selectedCategory);
+    }
+
+    return posts;
+  }, [postsData?.posts, searchQuery, selectedCategory]);
+
+  const PostCard = ({ post }: { post: Post }) => (
+    <Card
+      className="cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => onNavigate('postDetail', { postId: post.post_id })}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              {isPinned && <Pin className="w-4 h-4 text-yellow-600" />}
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className={categoryColors[post.category] || ""}
               >
                 {post.category}
               </Badge>
             </div>
-            <h3 className="mb-1">{post.title}</h3>
+            <h3 className="mb-1 font-semibold">{post.title}</h3>
             <div className="text-sm text-gray-600">
-              {post.author} {post.time && `• ${post.time}`}
+              {new Date(post.created_at).toLocaleDateString('ko-KR')}
             </div>
           </div>
         </div>
@@ -147,20 +86,32 @@ export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
         <div className="flex items-center gap-4 text-sm text-gray-600">
           <div className="flex items-center gap-1">
             <Eye className="w-4 h-4" />
-            <span>{post.views}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <ThumbsUp className="w-4 h-4" />
-            <span>{post.likes}</span>
+            <span>{post.view_count}</span>
           </div>
           <div className="flex items-center gap-1">
             <MessageSquare className="w-4 h-4" />
-            <span>{post.comments}</span>
+            <span>댓글</span>
           </div>
         </div>
       </CardContent>
     </Card>
   );
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-6 max-w-md">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-2">오류가 발생했습니다</h2>
+            <p className="text-gray-600 mb-4">{error.message}</p>
+            <Button onClick={() => window.location.reload()}>
+              새로고침
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -169,7 +120,7 @@ export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
           <Button variant="ghost" size="icon" onClick={handleBackClick}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1>커뮤니티</h1>
+          <h1 className="text-xl font-bold">커뮤니티</h1>
         </div>
       </header>
 
@@ -178,9 +129,11 @@ export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
         <div className="flex gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input 
-              placeholder="게시글 검색..." 
+            <Input
+              placeholder="게시글 검색..."
               className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <Button onClick={() => onNavigate('postCreate')}>
@@ -189,41 +142,34 @@ export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
           </Button>
         </div>
 
-        {/* Pinned Posts */}
-        <div className="space-y-3">
-          <h2 className="flex items-center gap-2">
-            <Pin className="w-5 h-5 text-yellow-600" />
-            고정 공지
-          </h2>
-          {pinnedPosts.map(post => (
-            <PostCard key={post.id} post={post} isPinned={true} />
-          ))}
-        </div>
-
         {/* Posts with Tabs */}
-        <Tabs defaultValue="all" className="space-y-4">
+        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-4">
           <TabsList>
             <TabsTrigger value="all">전체</TabsTrigger>
-            <TabsTrigger value="qna">Q&A</TabsTrigger>
-            <TabsTrigger value="info">생활정보</TabsTrigger>
+            <TabsTrigger value={PostCategory.QNA}>Q&A</TabsTrigger>
+            <TabsTrigger value={PostCategory.INFO_SHARE}>정보공유</TabsTrigger>
+            <TabsTrigger value={PostCategory.FREE}>자유게시판</TabsTrigger>
+            <TabsTrigger value={PostCategory.JOB_INFO}>취업정보</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all" className="space-y-3">
-            {posts.all.map(post => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </TabsContent>
-
-          <TabsContent value="qna" className="space-y-3">
-            {posts.qna.map(post => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </TabsContent>
-
-          <TabsContent value="info" className="space-y-3">
-            {posts.info.map(post => (
-              <PostCard key={post.id} post={post} />
-            ))}
+          <TabsContent value={selectedCategory} className="space-y-3">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+              </div>
+            ) : filteredPosts.length > 0 ? (
+              filteredPosts.map(post => (
+                <PostCard key={post.post_id} post={post} />
+              ))
+            ) : (
+              <Card className="p-12">
+                <div className="text-center text-gray-500">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>게시글이 없습니다.</p>
+                  <p className="text-sm mt-1">첫 번째 게시글을 작성해보세요!</p>
+                </div>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
 
@@ -233,7 +179,7 @@ export function CommunityScreen({ onNavigate, onBack }: CommunityScreenProps) {
             <div className="flex gap-3">
               <div className="text-3xl">💡</div>
               <div>
-                <h3 className="mb-2">커뮤니티 이용 안내</h3>
+                <h3 className="font-bold mb-2">커뮤니티 이용 안내</h3>
                 <ul className="text-sm text-gray-700 space-y-1">
                   <li>• 궁금한 점은 Q&A에 질문해주세요</li>
                   <li>• 유용한 정보는 정보공유에 올려주세요</li>

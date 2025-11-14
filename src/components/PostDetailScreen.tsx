@@ -4,50 +4,93 @@ import { Card, CardContent, CardHeader } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Textarea } from "./ui/textarea";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { ArrowLeft, Eye, ThumbsUp, MessageSquare, Share2 } from "lucide-react";
+import { ArrowLeft, Eye, ThumbsUp, MessageSquare, Share2, Loader2 } from "lucide-react";
+import { useGetPost } from "@/hooks/community/usePost";
+import { useGetReplies } from "@/hooks/community/useReply";
+import { useCreateReply } from "@/hooks/community/useCreateReply";
+import { toast } from "sonner";
 
 interface PostDetailScreenProps {
   onNavigate: (screen: string) => void;
+  postId?: number;
 }
 
-export function PostDetailScreen({ onNavigate }: PostDetailScreenProps) {
+const categoryColors: { [key: string]: string } = {
+  "Q&A": "bg-blue-100 text-blue-700 border-blue-200",
+  "정보공유": "bg-green-100 text-green-700 border-green-200",
+  "자유게시판": "bg-yellow-100 text-yellow-700 border-yellow-200",
+  "취업정보": "bg-indigo-100 text-indigo-700 border-indigo-200"
+};
+
+export function PostDetailScreen({ onNavigate, postId = 1 }: PostDetailScreenProps) {
   const [liked, setLiked] = useState(false);
   const [comment, setComment] = useState("");
 
-  const post = {
-    title: "손님이 화났을 때 어떻게 말해야 하나요?",
-    category: "Q&A",
-    author: "김민수",
-    authorLevel: "중급",
-    content: `안녕하세요. 저는 한식당에서 일한 지 3개월 됐어요.
+  // React Query hooks
+  const { data: post, isLoading: postLoading, error: postError } = useGetPost(postId);
+  const { data: repliesData, isLoading: repliesLoading } = useGetReplies(postId);
+  const createReplyMutation = useCreateReply();
 
-어제 손님이 음식이 늦게 나온다고 화를 내셨는데, 제가 뭐라고 말해야 할지 몰라서 당황했어요.
+  const replies = repliesData?.replies || [];
 
-이런 상황에서 어떻게 말하는 게 좋을까요? 선배님들의 조언 부탁드립니다.`,
-    time: "2시간 전",
-    views: 234,
-    likes: 12,
-    comments: 8
+  const handleCommentSubmit = () => {
+    if (!comment.trim()) return;
+
+    createReplyMutation.mutate(
+      {
+        postId,
+        data: { content: comment }
+      },
+      {
+        onSuccess: () => {
+          toast.success("댓글이 작성되었습니다");
+          setComment("");
+        },
+        onError: (error: any) => {
+          toast.error("댓글 작성 실패: " + error.message);
+        }
+      }
+    );
   };
 
-  const replies = [
-    {
-      id: 1,
-      author: "박서연",
-      authorLevel: "고급",
-      content: "저도 비슷한 경험 있어요. 이렇게 말하면 좋아요:\n\n\"죄송합니다. 주방이 바빠서 늦어졌습니다. 빨리 나오도록 확인해드릴게요.\"\n\n그리고 매니저나 주방에 빨리 알려주는 게 중요해요!",
-      time: "1시간 전",
-      likes: 8
-    },
-    {
-      id: 2,
-      author: "이수진",
-      authorLevel: "중급",
-      content: "저는 \"정말 죄송합니다. 제가 바로 확인하고 오겠습니다.\" 라고 말하고 주방에 가서 확인했어요. 손님한테 다시 가서 \"5분 후에 나옵니다\"라고 정확한 시간을 알려드리면 조금 안심하시더라고요.",
-      time: "30분 전",
-      likes: 5
-    }
-  ];
+  if (postError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-6 max-w-md">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-2">오류가 발생했습니다</h2>
+            <p className="text-gray-600 mb-4">{postError.message}</p>
+            <Button onClick={() => onNavigate('community')}>
+              목록으로 돌아가기
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (postLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-6 max-w-md">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-2">게시글을 찾을 수 없습니다</h2>
+            <Button onClick={() => onNavigate('community')}>
+              목록으로 돌아가기
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -56,7 +99,7 @@ export function PostDetailScreen({ onNavigate }: PostDetailScreenProps) {
           <Button variant="ghost" size="icon" onClick={() => onNavigate('community')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1>게시글</h1>
+          <h1 className="text-xl font-bold">게시글</h1>
         </div>
       </header>
 
@@ -65,24 +108,20 @@ export function PostDetailScreen({ onNavigate }: PostDetailScreenProps) {
         <Card>
           <CardHeader>
             <div className="space-y-3">
-              <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
+              <Badge variant="outline" className={categoryColors[post.category] || ""}>
                 {post.category}
               </Badge>
-              <h1>{post.title}</h1>
+              <h1 className="text-2xl font-bold">{post.title}</h1>
               <div className="flex items-center gap-3">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-blue-500 text-white">
-                    {post.author[0]}
+                    U
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span>{post.author}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {post.authorLevel}
-                    </Badge>
+                  <div className="text-sm text-gray-600">
+                    {new Date(post.created_at).toLocaleString('ko-KR')}
                   </div>
-                  <div className="text-sm text-gray-600">{post.time}</div>
                 </div>
               </div>
             </div>
@@ -96,22 +135,22 @@ export function PostDetailScreen({ onNavigate }: PostDetailScreenProps) {
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1">
                   <Eye className="w-4 h-4" />
-                  <span>{post.views}</span>
+                  <span>{post.view_count}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <MessageSquare className="w-4 h-4" />
-                  <span>{post.comments}</span>
+                  <span>{repliesLoading ? '...' : replies.length}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <Button 
+                <Button
                   variant={liked ? "default" : "outline"}
                   size="sm"
                   onClick={() => setLiked(!liked)}
                 >
                   <ThumbsUp className="w-4 h-4 mr-1" />
-                  {liked ? post.likes + 1 : post.likes}
+                  좋아요
                 </Button>
                 <Button variant="outline" size="sm">
                   <Share2 className="w-4 h-4 mr-1" />
@@ -125,51 +164,68 @@ export function PostDetailScreen({ onNavigate }: PostDetailScreenProps) {
         {/* Comments */}
         <Card>
           <CardHeader>
-            <h2>댓글 {replies.length}</h2>
+            <h2 className="text-lg font-bold">
+              댓글 {repliesLoading ? '...' : replies.length}
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
-            {replies.map((reply) => (
-              <div key={reply.id} className="pb-4 border-b last:border-0">
-                <div className="flex gap-3">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-green-500 text-white">
-                      {reply.author[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span>{reply.author}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {reply.authorLevel}
-                      </Badge>
-                      <span className="text-xs text-gray-500">{reply.time}</span>
+            {repliesLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : replies.length > 0 ? (
+              replies.map((reply) => (
+                <div key={reply.reply_id} className="pb-4 border-b last:border-0">
+                  <div className="flex gap-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="bg-green-500 text-white">
+                        U
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-gray-500">
+                          {new Date(reply.created_at).toLocaleString('ko-KR')}
+                        </span>
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-wrap mb-2">
+                        {reply.content}
+                      </p>
                     </div>
-                    <p className="text-gray-700 whitespace-pre-wrap mb-2">
-                      {reply.content}
-                    </p>
-                    <Button variant="ghost" size="sm">
-                      <ThumbsUp className="w-3 h-3 mr-1" />
-                      {reply.likes}
-                    </Button>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p>첫 번째 댓글을 작성해보세요!</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
         {/* Comment Input */}
         <Card>
           <CardContent className="pt-6 space-y-3">
-            <Textarea 
+            <Textarea
               placeholder="댓글을 입력하세요..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={4}
             />
             <div className="flex justify-end">
-              <Button disabled={!comment.trim()}>
-                댓글 작성
+              <Button
+                disabled={!comment.trim() || createReplyMutation.isPending}
+                onClick={handleCommentSubmit}
+              >
+                {createReplyMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    작성 중...
+                  </>
+                ) : (
+                  '댓글 작성'
+                )}
               </Button>
             </div>
           </CardContent>

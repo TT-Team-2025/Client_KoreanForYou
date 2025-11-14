@@ -52,3 +52,10 @@ export interface PostsResponse {
   size: number;
 }
 
+export interface RepliesResponse {
+  replies: Reply[];
+  total: number;
+  page: number;
+  size: number;
+}
+
