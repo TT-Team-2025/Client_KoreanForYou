@@ -8,6 +8,8 @@ import { useSendMessage } from "@/hooks/scenarios/useSendMessage";
 import { useEndScenario } from "@/hooks/scenarios/useEndScenario";
 import { CONVERSATION_TEXT } from "@/constants/conversation";
 import { LoadingOverlay } from "./LoadingOverlay";
+import { useUserProfile } from "@/hooks/users/useUserProfile";
+import { translateText } from "@/utils/translate";
 
 interface ConversationScreenProps {
   onNavigate: (screen: string) => void;
@@ -24,15 +26,19 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
   const [elapsedTime, setElapsedTime] = useState(0); // 타이머
   const [isAIResponding, setIsAIResponding] = useState(false); // AI 응답 대기 중
   const [isSTTProcessing, setIsSTTProcessing] = useState(false); // STT 변환 중
+  const [translatingMessageIds, setTranslatingMessageIds] = useState<Set<number>>(new Set()); // 번역 중인 메시지 ID
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       speaker: "ai",
       text: sessionData?.assistant || "안녕하세요! 대화를 시작해볼까요?",
-      translation: "Hello! Shall we start the conversation?",
+      translation: "",
       timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
+
+  // 사용자 프로필 조회
+  const { data: userProfile } = useUserProfile();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -80,6 +86,43 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 번역 버튼을 누를 때 아직 번역되지 않은 메시지들을 번역
+  useEffect(() => {
+    if (showTranslation && userProfile?.nationality) {
+      messages.forEach(async (message) => {
+        // 이미 번역이 있거나 번역 중인 메시지는 스킵
+        if (message.translation || translatingMessageIds.has(message.id)) {
+          return;
+        }
+
+        // 번역 중 표시
+        setTranslatingMessageIds(prev => new Set(prev).add(message.id));
+
+        try {
+          const translated = await translateText(message.text, userProfile.nationality!);
+
+          // 메시지 업데이트
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === message.id
+                ? { ...msg, translation: translated }
+                : msg
+            )
+          );
+        } catch (error) {
+          console.error('번역 실패:', error);
+        } finally {
+          // 번역 완료
+          setTranslatingMessageIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(message.id);
+            return newSet;
+          });
+        }
+      });
+    }
+  }, [showTranslation, messages, userProfile?.nationality, translatingMessageIds]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -211,7 +254,8 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
               },
               onError: (error) => {
                 setIsSTTProcessing(false);
-                alert(`음성 전송 실패: ${error.message}`);
+                console.error('STT 처리 오류:', error);
+                alert('다시 녹음해주세요');
               }
             }
           );
@@ -300,9 +344,6 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
       {/* 종료 중 로딩 오버레이 */}
       {isEndingScenario && <LoadingOverlay message="대화를 종료하는 중입니다..." />}
 
-      {/* STT 처리 중 로딩 오버레이 */}
-      {isSTTProcessing && <LoadingOverlay message="음성을 인식하는 중입니다..." />}
-
       {/* Header */}
       <header className="flex items-center justify-center px-5 pt-4 pb-4 relative">
         <div className="absolute left-5">
@@ -353,13 +394,22 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
                   }`}
                 >
                   <p className="leading-relaxed">{message.text}</p>
-                  {showTranslation && message.translation && (
+                  {showTranslation && (
                     <p className={`text-sm mt-2 pt-2 border-t italic ${
                       message.speaker === 'ai'
                         ? 'border-white/20 text-white/70'
                         : 'border-gray-200 text-gray-600'
                     }`}>
-                      {message.translation}
+                      {translatingMessageIds.has(message.id) ? (
+                        <span className="flex gap-1">
+                          번역 중
+                          <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                        </span>
+                      ) : (
+                        message.translation || '번역 중...'
+                      )}
                     </p>
                   )}
                 </div>
@@ -371,6 +421,21 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
               </div>
             </div>
           ))}
+
+          {/* STT 처리 중 표시 (사용자 말풍선) */}
+          {isSTTProcessing && (
+            <div className="flex justify-end">
+              <div className="max-w-[80%] items-end flex flex-col gap-1">
+                <div className="px-4 py-3 rounded-2xl bg-white text-gray-900">
+                  <div className="flex gap-1">
+                    <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                    <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                    <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* AI 응답 로딩 중 표시 */}
           {isAIResponding && (

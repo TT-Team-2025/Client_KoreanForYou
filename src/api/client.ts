@@ -3,7 +3,9 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '@/utils/token';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+// 개발 환경에서는 Vite 프록시를 사용하므로 /api만 사용
+// 프로덕션 환경에서는 환경변수로 전체 URL 설정
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Axios 인스턴스 생성
 const apiClient: AxiosInstance = axios.create({
@@ -58,7 +60,8 @@ apiClient.interceptors.response.use(
         try {
           console.log('[AUTH] 🔄 토큰 갱신 API 호출 중...');
           // 토큰 갱신 API 호출
-          const { data } = await axios.post(`${BASE_URL}/auth/refresh`, {
+          const refreshUrl = BASE_URL.startsWith('http') ? `${BASE_URL}/auth/refresh` : '/api/auth/refresh';
+          const { data } = await axios.post(refreshUrl, {
             refresh_token: refreshToken,
           });
 
