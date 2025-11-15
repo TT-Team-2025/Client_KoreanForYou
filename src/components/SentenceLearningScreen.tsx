@@ -79,6 +79,7 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
   const [isEvaluating, setIsEvaluating] = useState(false); // STT/피드백 처리 중
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStartTimeRef = useRef<string | null>(null); // 녹음 시작 시간
 
   // 챕터 피드백 생성 훅
   const { mutateAsync: generateChapterFeedback } = useGenerateChapterFeedback();
@@ -182,7 +183,9 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
 
       recorder.start();
       attemptCountRef.current++;
+      recordingStartTimeRef.current = new Date().toISOString(); // ISO 8601 형식으로 저장
       console.log(`🎤 녹음 시작: attemptCount ${attemptCountRef.current - 1} → ${attemptCountRef.current}`);
+      console.log(`🕐 녹음 시작 시간: ${recordingStartTimeRef.current}`);
       setIsRecording(true);
       toast.info("녹음을 시작합니다. 문장을 읽어 주세요.");
     } catch (err) {
@@ -217,6 +220,17 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
 
       const formData = new FormData();
       formData.append("file", file);
+
+      // ✅ start_time 추가 (서버 필수 파라미터)
+      if (recordingStartTimeRef.current) {
+        formData.append("start_time", recordingStartTimeRef.current);
+        console.log("📤 전송 start_time:", recordingStartTimeRef.current);
+      } else {
+        // 만약 start_time이 없다면 현재 시간으로 대체
+        const fallbackTime = new Date().toISOString();
+        formData.append("start_time", fallbackTime);
+        console.warn("⚠️ start_time이 없어 현재 시간 사용:", fallbackTime);
+      }
 
       toast.info("음성 인식 중입니다...");
 
@@ -448,9 +462,9 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
 
         // 피드백 화면으로 이동
         onNavigate("feedback", {
-          type: "sentence",
-          title: chapter.title,
           ...chapterFeedback,
+          type: "chapter", // ✅ "sentence"가 아니라 "chapter"로 수정
+          title: chapter.title,
         });
       } catch (error) {
         console.error("챕터 피드백 생성 실패:", error);

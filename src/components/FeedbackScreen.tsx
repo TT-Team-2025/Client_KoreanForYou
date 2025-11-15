@@ -31,9 +31,12 @@ export function FeedbackScreen({
   onNavigate,
   learningRecord,
 }: FeedbackScreenProps) {
+  console.log("🎯 FeedbackScreen received learningRecord:", learningRecord);
+
   /** 1) 학습 기록 타입 판별 */
   const recordType = learningRecord?.type || "conversation";
   const isConversation = recordType === "conversation";
+  console.log("🔍 Type:", recordType, "| isConversation:", isConversation);
 
   /** 2) progress_id로 피드백 조회 (AI 대화인 경우) */
   const progressId = learningRecord?.progress_id;
@@ -41,9 +44,11 @@ export function FeedbackScreen({
     useScenarioFeedback(isConversation ? progressId : undefined);
 
   /** 2-2) chapter_id로 피드백 조회 (문장 학습인 경우) */
+  // ✅ learningRecord에 이미 피드백 데이터가 있으면 API 호출 안 함
   const chapterId = learningRecord?.chapter_id;
+  const shouldFetchChapterFeedback = !isConversation && chapterId && !learningRecord?.feedback_id;
   const { data: chapterFeedbackData, isLoading: isLoadingChapterFeedback } =
-    useChapterFeedback(!isConversation ? chapterId : undefined);
+    useChapterFeedback(shouldFetchChapterFeedback ? chapterId : undefined);
 
   /** 3) 시나리오 저장 훅 (모든 hook은 조건문 이전에 호출) */
   const { mutate: saveScenario, isPending: isSaving } = useSaveScenario();
@@ -131,21 +136,28 @@ export function FeedbackScreen({
       feedback?.ai_comment ?? detailComment?.ai_comment ?? "수고하셨습니다!",
   };
 
-  /** 10) 문장 학습 데이터 (API에서 가져옴) */
+  /** 10) 문장 학습 데이터 (learningRecord 우선, API 백업) */
+  // ✅ learningRecord에 데이터가 있으면 우선 사용, 없으면 API 데이터 사용
+  const chapterData = learningRecord?.feedback_id ? learningRecord : chapterFeedbackData;
+  console.log("📊 Chapter Data Source:", learningRecord?.feedback_id ? "learningRecord" : "API");
+  console.log("📊 chapterFeedbackData:", chapterFeedbackData);
+  console.log("📊 Final chapterData:", chapterData);
+
   const sentenceData = {
-    title: learningRecord?.title || chapterFeedbackData?.chapter_id?.toString() || "챕터 학습",
-    progress: chapterFeedbackData?.total_sentences
-      ? Math.round((chapterFeedbackData.completed_sentences / chapterFeedbackData.total_sentences) * 100)
+    title: learningRecord?.title || chapterData?.chapter_id?.toString() || "챕터 학습",
+    progress: chapterData?.total_sentences
+      ? Math.round((chapterData.completed_sentences / chapterData.total_sentences) * 100)
       : learningRecord?.progress ?? 0,
-    completedSentences: chapterFeedbackData?.completed_sentences ?? learningRecord?.completedSentences ?? 0,
-    totalSentences: chapterFeedbackData?.total_sentences ?? learningRecord?.totalSentences ?? 0,
-    date: learningRecord?.date || chapterFeedbackData?.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-    totalScore: chapterFeedbackData?.total_score,
-    pronunciationScore: chapterFeedbackData?.pronunciation_score,
-    accuracyScore: chapterFeedbackData?.accuracy_score,
-    summaryFeedback: chapterFeedbackData?.summary_feedback,
-    weaknesses: chapterFeedbackData?.weaknesses || [],
-    duration: formatDuration(chapterFeedbackData?.total_time), // AI 대화와 동일하게 처리
+    completedSentences: chapterData?.completed_sentences ?? 0,
+    totalSentences: chapterData?.total_sentences ?? 0,
+    date: learningRecord?.date || chapterData?.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+    totalScore: chapterData?.total_score,
+    pronunciationScore: chapterData?.pronunciation_score,
+    accuracyScore: chapterData?.accuracy_score,
+    summaryFeedback: chapterData?.summary_feedback,
+    weaknesses: chapterData?.weaknesses || [],
+    totalTime: chapterData?.total_time ?? 0, // ✅ totalTime 추가
+    duration: formatDuration(chapterData?.total_time),
   };
 
   return (
