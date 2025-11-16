@@ -1,6 +1,16 @@
 import { BaseResponse, DateString } from "./commonTypes";
 
 export interface UserProgress {
+  total_chapters: number;
+  completed_chapters: number;
+  total_sentences: number;
+  completed_sentences: number;
+  overall_progress: string;
+  study_time_minutes: number;
+  last_study_date: string;
+}
+
+export interface ChapterProgress {
   progress_id: number;
   user_id: number;
   chapter_id: number;

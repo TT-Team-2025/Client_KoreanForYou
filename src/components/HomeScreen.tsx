@@ -7,7 +7,6 @@ import { StudyCalendar } from "./StudyCalendar";
 import { LearningRecordCard } from "./shared/LearningRecordCard";
 import { StatCard } from "./shared/StatCard";
 import { QuickAccessCard } from "./shared/QuickAccessCard";
-import { LevelBadge } from "./shared/LevelBadge";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
 import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useRandomSentence } from "@/hooks/sentences/useRandomSentece";
@@ -16,6 +15,7 @@ import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
 import { useRecentChapterFeedbacks } from "@/hooks/chapters/useRecentChapterFeedbacks";
 import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
 import { useTranslate } from "@/hooks/useTranslate";
+import { useUserProgress } from "@/hooks/progress/useUserProgress";
 
 interface HomeScreenProps {
   onNavigate: (screen: string, data?: any) => void;
@@ -41,6 +41,7 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
 
   // 최근 학습 기록 조회 (API)
   const { data: chapterFeedbacks } = useRecentChapterFeedbacks(3);
+  const { data: userProgress } = useUserProgress(userProfile?.user_id || 0);
   const { data: scenarioHistory } = useScenarioHistory();
 
   // 로딩 중일 때
@@ -70,15 +71,17 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
     chapter_id: item.chapter_id,
   })) || [];
 
-  const conversationRecords = scenarioHistory?.data?.slice(0, 3).map(item => ({
-    id: item.progress_id,
-    type: 'conversation' as const,
-    title: item.title,
-    date: item.date,
-    score: 85, // TODO: API에 점수 필드 추가 필요
-    description: item.description,
-    completion_status: item.completion_status,
-  })) || [];
+  const conversationRecords = (scenarioHistory?.data && Array.isArray(scenarioHistory.data))
+    ? scenarioHistory.data.slice(0, 3).map(item => ({
+        id: item.progress_id,
+        type: 'conversation' as const,
+        title: item.title,
+        date: item.date,
+        score: 85, // TODO: API에 점수 필드 추가 필요
+        description: item.description,
+        completion_status: item.completion_status,
+      }))
+    : [];
 
   // 두 배열을 합치고 날짜순으로 정렬
   const recentRecords = [...sentenceRecords, ...conversationRecords]
@@ -180,15 +183,21 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {recentRecords.map((record) => (
-                    <LearningRecordCard
-                      key={record.id}
-                      record={record}
-                      onClick={() => handleRecordClick(record)}
-                    />
-                  ))}
-                </div>
+                {recentRecords.length > 0 ? (
+                  <div className="space-y-3">
+                    {recentRecords.map((record) => (
+                      <LearningRecordCard
+                        key={record.id}
+                        record={record}
+                        onClick={() => handleRecordClick(record)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">학습을 진행해주세요</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -242,13 +251,13 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
             <div className="grid grid-cols-2 gap-4">
               <StatCard
                 icon={Clock}
-                value={`${Math.floor((userStatus?.total_study_time || 0) / 60)}시간`}
+                value={`${userProgress?.study_time_minutes || 0}분`}
                 label="학습 시간"
                 iconColor="text-blue-500"
               />
               <StatCard
                 icon={BookOpen}
-                value={`${userStatus?.total_sentences_completed || 0}개`}
+                value={`${userProgress?.completed_sentences || 0}개`}
                 label="완료 문장"
                 iconColor="text-green-500"
               />
@@ -275,23 +284,14 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>완료한 문장</span>
-                    <span>{userStatus?.total_sentences_completed || 0}개</span>
+                    <span>{userProgress?.completed_sentences || 0}개</span>
                   </div>
                   <Progress
-                    value={Math.min((userStatus?.total_sentences_completed || 0) / 2, 100)}
+                    value={userProgress?.total_sentences ? (userProgress.completed_sentences / userProgress.total_sentences) * 100 : 0}
                     className="h-2"
                   />
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>AI 대화 세션</span>
-                    <span>{userCountSpeech?.scenario_count || 0}회</span>
-                  </div>
-                  <Progress
-                    value={Math.min((userCountSpeech?.scenario_count || 0) * 10, 100)}
-                    className="h-2"
-                  />
-                </div>
+        
                 
                 {/* 작은 달력 추가 */}
                 <div className="pt-3 border-t border-red-200">

@@ -22,6 +22,7 @@ const fetchRecentChapterFeedbacks = async (limit: number = 10): Promise<ChapterF
     `/stats/chapters/recent`,
     { params: { limit } }
   );
+  console.log('최근 챕터 학습 기록 : ', response.data)
   return response.data.data || [];
 };
 
