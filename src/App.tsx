@@ -22,6 +22,7 @@ import { PasswordChangeScreen } from "./components/PasswordChangeScreen";
 import { LanguageSettingsScreen } from "./components/LanguageSettingsScreen";
 import { MyPostsScreen } from "./components/MyPostsScreen";
 import { MyCommentsScreen } from "./components/MyCommentsScreen";
+import { Navigation } from "./components/Navigation";
 import { Toaster } from "./components/ui/sonner";
 import type { ConversationSetup, StartScenarioResponse } from "./types/scenario";
 
@@ -91,15 +92,22 @@ export default function App() {
   // Selected learning record for viewing results
   const [selectedLearningRecord, setSelectedLearningRecord] = useState<any>(null);
 
+  // Selected post for post detail
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+
   const handleNavigate = (screen: Screen, data?: any) => {
     setNavigationHistory([...navigationHistory, currentScreen]);
     setCurrentScreen(screen);
-    
+
     // 데이터가 전달된 경우 처리
     if (data?.chapter) {
       setSelectedChapter(data.chapter);
     }
-    
+
+    if (data?.postId) {
+      setSelectedPostId(data.postId);
+    }
+
     window.scrollTo(0, 0);
   };
 
@@ -123,6 +131,11 @@ export default function App() {
   const handleSelectLearningRecord = (record: any) => {
     setSelectedLearningRecord(record);
     handleNavigate('feedback');
+  };
+
+  // 네비게이션 바를 표시할지 여부 결정
+  const shouldShowNavigation = () => {
+    return currentScreen !== 'landing' && currentScreen !== 'login' && currentScreen !== 'signup';
   };
 
   const renderScreen = () => {
@@ -172,7 +185,7 @@ export default function App() {
       case 'community':
         return <CommunityScreen onNavigate={handleNavigate} onBack={handleBack} />;
       case 'postDetail':
-        return <PostDetailScreen onNavigate={handleNavigate} />;
+        return <PostDetailScreen onNavigate={handleNavigate} postId={selectedPostId || 1} />;
       case 'postCreate':
         return <PostCreateScreen onNavigate={handleNavigate} />;
       case 'mypage':
@@ -192,6 +205,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      {shouldShowNavigation() && <Navigation onNavigate={handleNavigate} currentScreen={currentScreen} />}
       {renderScreen()}
       <Toaster position="top-center" />
     </div>

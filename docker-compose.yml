@@ -1,20 +1,85 @@
-version: '3.8'
-
 services:
+  # PostgreSQL
+  db:
+    image: postgres:16
+    container_name: koreanforyou_db_dev
+    environment:
+      POSTGRES_DB: koreanforyou
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d koreanforyou"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: koreanforyou_redis_dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # FastAPI 백엔드 (여기 이름을 backend로 맞춰줌)
+  backend:
+    build:
+      context: ../Server_KoreanForYou    
+      dockerfile: Dockerfile
+    container_name: koreanforyou
+    command: >
+      sh -c "pip install --upgrade pip &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/koreanforyou
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+      ENV: development
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_openai_key_here}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      RETURN_ZERO_CLIENT_ID: ${RETURN_ZERO_CLIENT_ID:-your_vito_client_id}
+      RETURN_ZERO_CLIENT_SECRET: ${RETURN_ZERO_CLIENT_SECRET:-your_vito_secret}
+      CLOVA_VOICE_CLIENT_ID: ${CLOVA_VOICE_CLIENT_ID:-your_clova_client_id}
+      CLOVA_VOICE_CLIENT_SECRET: ${CLOVA_VOICE_CLIENT_SECRET:-your_clova_secret}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../Server_KoreanForYou:/app:cached
+      - /app/venv
+    tty: true
+    stdin_open: true
+
+  # 프론트엔드
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+    container_name: koreanforyou_frontend
     ports:
-      - "80:80"
-    environment:
-      - NODE_ENV=production
-    networks:
-      - app-network
+      - "5173:5173"
     depends_on:
-      - backend
+      - backend         # 이제 진짜로 존재하는 backend 서비스에 의존
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
 
-
-networks:
-  app-network:
-    driver: bridge
+volumes:
+  postgres_data_dev:
+  redis_data_dev:

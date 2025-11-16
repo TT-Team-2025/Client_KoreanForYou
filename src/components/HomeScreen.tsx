@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
 import { BookOpen, MessageSquare, Award, Clock, TrendingUp, Volume2 } from "lucide-react";
-import { Navigation } from "./Navigation";
 import { StudyCalendar } from "./StudyCalendar";
 import { LearningRecordCard } from "./shared/LearningRecordCard";
 import { StatCard } from "./shared/StatCard";
@@ -19,7 +18,7 @@ import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
 import { useTranslate } from "@/hooks/useTranslate";
 
 interface HomeScreenProps {
-  onNavigate: (screen: string) => void;
+  onNavigate: (screen: string, data?: any) => void;
   onSelectLearningRecord?: (record: any) => void;
 }
 
@@ -95,9 +94,6 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <Navigation onNavigate={onNavigate} currentScreen="home" />
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -214,7 +210,11 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                 ) : posts?.posts && posts.posts.length > 0 ? (
                   <div className="space-y-3">
                     {posts.posts.slice(0, 3).map((post) => (
-                      <div key={post.post_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer border">
+                      <div
+                        key={post.post_id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer border transition-colors"
+                        onClick={() => onNavigate('postDetail', { postId: post.post_id })}
+                      >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="text-xs">{post.category}</Badge>

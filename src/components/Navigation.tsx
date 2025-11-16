@@ -1,4 +1,3 @@
-import { Button } from "./ui/button";
 import { Home, BookOpen, MessageSquare, BarChart3, Users, User } from "lucide-react";
 import K4YLogo from "../assets/K4Y_logo.png";
 
@@ -9,11 +8,11 @@ interface NavigationProps {
 
 export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
   const navItems = [
-    { id: 'home', label: '홈', icon: Home },
-    { id: 'chapterList', label: '문장 학습', icon: BookOpen },
-    { id: 'conversationSetup', label: 'AI 연습', icon: MessageSquare },
-    { id: 'progress', label: '학습 기록', icon: BarChart3 },
-    { id: 'community', label: '커뮤니티', icon: Users },
+    { id: 'home', label: '홈', icon: Home, screens: ['home', 'levelTest', 'levelTestResult', 'levelUp'] },
+    { id: 'chapterList', label: '문장 학습', icon: BookOpen, screens: ['chapterList', 'sentenceLearning', 'pronunciation'] },
+    { id: 'conversationSetup', label: 'AI 연습', icon: MessageSquare, screens: ['scenarioSelect', 'conversationSetup', 'conversation'] },
+    { id: 'progress', label: '학습 기록', icon: BarChart3, screens: ['progress', 'feedback'] },
+    { id: 'community', label: '커뮤니티', icon: Users, screens: ['community', 'postDetail', 'postCreate'] },
   ];
 
   return (
@@ -31,15 +30,15 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
           {/* Main Navigation */}
           <div className="hidden md:flex items-center justify-center flex-1 gap-12">
             {navItems.map((item) => {
-              const isActive = currentScreen === item.id;
+              const isActive = item.screens.includes(currentScreen || '');
               const Icon = item.icon;
-              
+
               return (
                 <button
                   key={item.id}
                   className={`flex items-center gap-2 px-3 py-2 border-b-2 transition-colors ${
-                    isActive 
-                      ? 'border-red-600 text-red-600' 
+                    isActive
+                      ? 'border-red-600 text-red-600'
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                   onClick={() => onNavigate(item.id)}
@@ -53,11 +52,15 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
 
           {/* User Menu */}
           <div className="w-48 flex justify-end">
-            <button 
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            <button
+              className={`p-2 rounded-full transition-colors ${
+                ['mypage', 'passwordChange', 'languageSettings', 'myPosts', 'myComments'].includes(currentScreen || '')
+                  ? 'bg-red-50 text-red-600'
+                  : 'hover:bg-gray-100 text-gray-600'
+              }`}
               onClick={() => onNavigate('mypage')}
             >
-              <User className="w-5 h-5 text-gray-600" />
+              <User className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -66,15 +69,15 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
         <div className="md:hidden border-t">
           <div className="grid grid-cols-5 gap-1 py-2">
             {navItems.map((item) => {
-              const isActive = currentScreen === item.id;
+              const isActive = item.screens.includes(currentScreen || '');
               const Icon = item.icon;
-              
+
               return (
                 <button
                   key={item.id}
                   className={`flex flex-col items-center gap-1 py-2 px-1 rounded transition-colors ${
-                    isActive 
-                      ? 'text-red-600' 
+                    isActive
+                      ? 'text-red-600'
                       : 'text-gray-500'
                   }`}
                   onClick={() => onNavigate(item.id)}

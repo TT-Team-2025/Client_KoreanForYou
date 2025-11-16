@@ -12,7 +12,6 @@ import { Label } from "./ui/label";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Camera, LogOut, UserX, MessageSquare } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Navigation } from "./Navigation";
 import api from "../api/axiosInstance";
 import {
   AlertDialog,
@@ -127,9 +126,6 @@ export function MyPageScreen({ onNavigate }: MyPageScreenProps) {
   // -----------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-red-50">
-      {/* 상단 네비게이션 */}
-      <Navigation onNavigate={onNavigate} currentScreen="mypage" />
-
       {/* 메인 내용 */}
       <main className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white shadow-md rounded-2xl mt-6 mb-20">
         {/* 저장 완료 알림 */}
