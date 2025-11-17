@@ -148,6 +148,12 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
 
       // 녹음 시작
       try {
+        // ✅ navigator.mediaDevices가 존재하는지 먼저 확인
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          alert('이 브라우저는 음성 녹음을 지원하지 않습니다. Chrome, Edge, Safari 최신 버전을 사용해주세요.');
+          return;
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
         // 지원되는 MIME 타입 확인
@@ -183,6 +189,17 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
             threadId: sessionData.session_id
           });
 
+          // ✅ 낙관적 업데이트 1: 사용자 메시지 즉시 표시 (임시 텍스트)
+          const tempUserMessageId = Date.now();
+          const tempUserMessage: Message = {
+            id: tempUserMessageId,
+            speaker: "user",
+            text: "🎤 음성 인식 중...",  // 임시 텍스트
+            translation: "",
+            timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+          };
+          setMessages(prev => [...prev, tempUserMessage]);
+
           // 1단계: 음성 파일을 STT로 변환
           setIsSTTProcessing(true);
 
@@ -196,15 +213,25 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
                 // STT 로딩 종료
                 setIsSTTProcessing(false);
 
-                // 사용자 메시지 추가 (STT 결과)
-                const userMessage: Message = {
-                  id: Date.now(),
-                  speaker: "user",
-                  text: sttData.user_text,
-                  translation: "", // 번역은 필요시 추가
+                // ✅ STT 결과로 임시 메시지 업데이트
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempUserMessageId
+                      ? { ...msg, text: sttData.user_text }  // 실제 STT 결과로 교체
+                      : msg
+                  )
+                );
+
+                // ✅ 낙관적 업데이트 2: AI 메시지 즉시 표시 (임시 텍스트)
+                const tempAIMessageId = Date.now() + 1;
+                const tempAIMessage: Message = {
+                  id: tempAIMessageId,
+                  speaker: "ai",
+                  text: "💭 생각하는 중...",  // 임시 텍스트
+                  translation: "",
                   timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
                 };
-                setMessages(prev => [...prev, userMessage]);
+                setMessages(prev => [...prev, tempAIMessage]);
 
                 // AI 응답 로딩 시작
                 setIsAIResponding(true);
@@ -220,15 +247,14 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
                       // AI 응답 로딩 종료
                       setIsAIResponding(false);
 
-                      // AI 응답 메시지 추가
-                      const aiMessage: Message = {
-                        id: Date.now() + 1,
-                        speaker: "ai",
-                        text: aiData.assistant,
-                        translation: "",
-                        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-                      };
-                      setMessages(prev => [...prev, aiMessage]);
+                      // ✅ LLM 결과로 임시 메시지 업데이트
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === tempAIMessageId
+                            ? { ...msg, text: aiData.assistant }  // 실제 AI 응답으로 교체
+                            : msg
+                        )
+                      );
 
                       // AI 응답 TTS 재생
                       if (aiData.tts_filename && !isMuted) {
@@ -247,6 +273,10 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
                     },
                     onError: (error) => {
                       setIsAIResponding(false);
+
+                      // ✅ 에러 발생 시 임시 메시지 제거
+                      setMessages(prev => prev.filter(msg => msg.id !== tempAIMessageId));
+
                       alert(`AI 응답 받기 실패: ${error.message}`);
                     }
                   }
@@ -255,6 +285,16 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
               onError: (error) => {
                 setIsSTTProcessing(false);
                 console.error('STT 처리 오류:', error);
+
+                // ✅ 에러 발생 시 임시 메시지 업데이트
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempUserMessageId
+                      ? { ...msg, text: "⚠️ 음성 인식 실패" }
+                      : msg
+                  )
+                );
+
                 alert('다시 녹음해주세요');
               }
             }
