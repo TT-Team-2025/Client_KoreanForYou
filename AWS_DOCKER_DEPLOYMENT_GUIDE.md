@@ -124,7 +124,7 @@ POSTGRES_DB=koreanforyou
 chmod 400 ~/Downloads/koreanforyou-key.pem
 
 # SSH 접속
-ssh -i ~/Downloads/koreanforyou-key.pem ubuntu@<EC2_PUBLIC_IP>
+ssh -i ~/src/koreanforyou-key.pem ubuntu@3.106.179.223
 ```
 
 #### Windows (PowerShell):
@@ -206,15 +206,25 @@ cd ~
 # 프론트엔드 프로젝트 클론
 git clone https://github.com/TT-Team-2025/Front_KoreanForYou.git
 
+# 프론트엔드 develop 브랜치로 이동
+cd Front_KoreanForYou
+git checkout develop
+cd ~
+
 # 백엔드 프로젝트 클론 (상위 디렉토리에)
 git clone https://github.com/TT-Team-2025/Server_KoreanForYou.git
+
+# 백엔드도 특정 브랜치가 필요하면 (예: develop)
+cd Server_KoreanForYou
+git checkout develop  # 필요한 경우에만
+cd ~
 ```
 
 디렉토리 구조:
 ```
 /home/ubuntu/
-├── Front_KoreanForYou/
-└── Server_KoreanForYou/
+├── Front_KoreanForYou/  (develop 브랜치)
+└── Server_KoreanForYou/ (main 또는 develop 브랜치)
 ```
 
 ### 5.2 환경 변수 설정
