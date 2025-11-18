@@ -460,11 +460,25 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
         const chapterFeedback = await generateChapterFeedback(chapter.chapter_id);
         toast.success("피드백이 생성되었습니다!", { id: "generate-feedback" });
 
+        console.log("📤 Generated chapter feedback:", chapterFeedback);
+
         // 피드백 화면으로 이동
         onNavigate("feedback", {
-          ...chapterFeedback,
+          feedback_id: chapterFeedback.feedback_id, // ✅ feedback_id 명시적으로 추가
+          chapter_id: chapterFeedback.chapter_id,
+          user_id: chapterFeedback.user_id,
+          total_score: chapterFeedback.total_score,
+          pronunciation_score: chapterFeedback.pronunciation_score,
+          accuracy_score: chapterFeedback.accuracy_score,
+          total_sentences: chapterFeedback.total_sentences,
+          completed_sentences: chapterFeedback.completed_sentences,
+          summary_feedback: chapterFeedback.summary_feedback,
+          weaknesses: chapterFeedback.weaknesses,
+          total_time: chapterFeedback.total_time,
+          created_at: chapterFeedback.created_at,
           type: "chapter", // ✅ "sentence"가 아니라 "chapter"로 수정
           title: chapter.title,
+          chapter: chapter, // ✅ 다시 연습하기 버튼을 위한 chapter 정보 추가
         });
       } catch (error) {
         console.error("챕터 피드백 생성 실패:", error);
