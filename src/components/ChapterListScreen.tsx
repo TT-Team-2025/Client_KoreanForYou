@@ -50,12 +50,8 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
     const fetchChapters = async () => {
       try {
         const [commonRes, jobRes] = await Promise.all([
-          api.get(`/chapters/`, {
-            params: { category_id: 0, level_id: userProfile.level_id },
-          }),
-          api.get(`/chapters/`, {
-            params: { category_id: userProfile.job_id, level_id: userProfile.level_id },
-          }),
+          api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`),
+          api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`),
         ]);
 
         const commonChapters = commonRes.data?.chapters ?? [];
