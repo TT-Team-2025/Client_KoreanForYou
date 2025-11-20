@@ -46,9 +46,20 @@ export function FeedbackScreen({
   /** 2-2) chapter_id로 피드백 조회 (문장 학습인 경우) */
   // ✅ learningRecord에 이미 피드백 데이터가 있으면 API 호출 안 함
   const chapterId = learningRecord?.chapter_id;
-  const shouldFetchChapterFeedback = !isConversation && chapterId && !learningRecord?.feedback_id;
+  // feedback_id가 있거나 필수 피드백 데이터(total_score, completed_sentences 등)가 있으면 API 호출 안 함
+  const hasCompleteFeedbackData = learningRecord?.feedback_id ||
+    (learningRecord?.total_sentences !== undefined && learningRecord?.completed_sentences !== undefined);
+  const shouldFetchChapterFeedback = !isConversation && chapterId && !hasCompleteFeedbackData;
   const { data: chapterFeedbackData, isLoading: isLoadingChapterFeedback } =
     useChapterFeedback(shouldFetchChapterFeedback ? chapterId : undefined);
+
+  console.log("🔍 FeedbackScreen Debug:", {
+    isConversation,
+    chapterId,
+    hasCompleteFeedbackData,
+    shouldFetchChapterFeedback,
+    learningRecord,
+  });
 
   /** 3) 시나리오 저장 훅 (모든 hook은 조건문 이전에 호출) */
   const { mutate: saveScenario, isPending: isSaving } = useSaveScenario();
@@ -137,9 +148,9 @@ export function FeedbackScreen({
   };
 
   /** 10) 문장 학습 데이터 (learningRecord 우선, API 백업) */
-  // ✅ learningRecord에 데이터가 있으면 우선 사용, 없으면 API 데이터 사용
-  const chapterData = learningRecord?.feedback_id ? learningRecord : chapterFeedbackData;
-  console.log("📊 Chapter Data Source:", learningRecord?.feedback_id ? "learningRecord" : "API");
+  // ✅ learningRecord에 완전한 데이터가 있으면 우선 사용, 없으면 API 데이터 사용
+  const chapterData = hasCompleteFeedbackData ? learningRecord : chapterFeedbackData;
+  console.log("📊 Chapter Data Source:", hasCompleteFeedbackData ? "learningRecord" : "API");
   console.log("📊 chapterFeedbackData:", chapterFeedbackData);
   console.log("📊 Final chapterData:", chapterData);
 

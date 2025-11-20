@@ -108,6 +108,12 @@ export default function App() {
       setSelectedPostId(data.postId);
     }
 
+    // ✅ feedback 화면으로 이동할 때 학습 기록 데이터 저장
+    if (screen === 'feedback' && data) {
+      console.log("📤 [App.tsx] Setting selectedLearningRecord:", data);
+      setSelectedLearningRecord(data);
+    }
+
     window.scrollTo(0, 0);
   };
 
