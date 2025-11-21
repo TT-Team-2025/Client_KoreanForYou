@@ -54,9 +54,11 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
         let allChapters: any[] = [];
         
         try {
-          const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
+          // size를 크게 설정하여 모든 챕터 조회 (최대 500개)
+          const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
+          console.log("📋 챕터 조회 응답:", allChaptersRes.data);
           allChapters = allChaptersRes.data?.chapters ?? [];
-          console.log(`📊 초기 조회된 챕터: ${allChapters.length}개`);
+          console.log(`📊 초기 조회된 챕터: ${allChapters.length}개 (전체: ${allChaptersRes.data?.total ?? 0}개)`);
         } catch (fetchError: any) {
           console.error("⚠️ 초기 챕터 조회 실패:", fetchError);
           // 조회 실패 시 빈 배열로 시작
@@ -78,22 +80,22 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               const createdCategories = createResult.data || [];
               console.log(`📋 생성된 카테고리: ${createdCategories.length}개`);
               
-              // 각 카테고리당 1개의 챕터만 생성 (병렬 처리로 속도 개선)
-              if (createdCategories.length > 0 && userProfile.level_id && userProfile.job_id !== undefined) {
-                console.log("🔵 각 카테고리별 챕터 생성 시작 (각 카테고리당 1개씩)...");
+              // 직무별 챕터 생성 (category_id = job_id로 사용)
+              if (userProfile.level_id && userProfile.job_id !== undefined) {
+                console.log(`🔵 직무별 챕터 생성 시작 (job_id=${userProfile.job_id}, category_id=${userProfile.job_id})...`);
                 
                 // 타입 안전성 체크
                 const levelId = userProfile.level_id;
                 const jobId = userProfile.job_id;
                 
-                // 병렬 처리로 속도 개선 (배치로 나누어 처리)
+                // 생성된 카테고리 내용을 사용하여 챕터 생성 (category_id는 job_id 사용)
                 const batchSize = 5; // 한 번에 5개씩 처리
                 for (let i = 0; i < createdCategories.length; i += batchSize) {
                   const batch = createdCategories.slice(i, i + batchSize);
                   const batchPromises = batch.map(async (category: any) => {
                     try {
                       const chapterData = {
-                        category_id: category.category_id,
+                        category_id: jobId, // category_id = job_id로 사용
                         job_id: jobId,
                         level_id: levelId,
                         title: category.content,
@@ -102,14 +104,14 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
                       };
                       
                       await createChapter(chapterData);
-                      console.log(`✅ 카테고리 ${category.category_id} 챕터 생성 완료`);
+                      console.log(`✅ 직무 챕터 생성 완료: ${category.content}`);
                       return true;
                     } catch (error: any) {
                       if (error?.response?.status === 400 || error?.message?.includes("duplicate")) {
-                        console.log(`ℹ️ 카테고리 ${category.category_id} 챕터는 이미 존재합니다.`);
+                        console.log(`ℹ️ 직무 챕터는 이미 존재합니다: ${category.content}`);
                         return true;
                       } else {
-                        console.error(`⚠️ 카테고리 ${category.category_id} 챕터 생성 실패:`, error?.message);
+                        console.error(`⚠️ 직무 챕터 생성 실패:`, error?.message);
                         return false;
                       }
                     }
@@ -158,17 +160,19 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               try {
                 console.log(`🔍 전체 챕터 조회 중 (level_id=${userProfile.level_id})...`);
                 
-                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
+                // size를 크게 설정하여 모든 챕터 조회
+                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
+                console.log("📋 챕터 조회 응답:", allChaptersRes.data);
                 fetchedChapters = allChaptersRes?.data?.chapters ?? [];
                 
-                console.log(`📊 조회된 전체 챕터: ${fetchedChapters.length}개`);
+                console.log(`📊 조회된 전체 챕터: ${fetchedChapters.length}개 (전체: ${allChaptersRes?.data?.total ?? 0}개)`);
                 
                 if (fetchedChapters.length === 0) {
                   // 재시도
                   console.log("⏳ 챕터가 아직 조회되지 않습니다. 재시도 중...");
                   await new Promise(resolve => setTimeout(resolve, 2000));
                   
-                  const retryRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
+                  const retryRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
                   fetchedChapters = retryRes?.data?.chapters ?? [];
                   if (fetchedChapters.length > 0) {
                     console.log(`✅ 재시도 후 챕터 목록 불러오기 완료! (${fetchedChapters.length}개)`);
@@ -180,6 +184,7 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
                 }
               } catch (fetchError: any) {
                 console.error("⚠️ 챕터 목록 조회 중 에러:", fetchError);
+                console.error("에러 상세:", fetchError?.response?.data);
               }
               
               // 조회된 챕터를 allChapters에 할당 (push가 아닌 할당)
@@ -196,12 +201,12 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
                 createError?.message?.includes("already exists")) {
               console.log("ℹ️ 카테고리가 이미 존재합니다. 챕터 목록을 다시 불러옵니다...");
               
-              // 챕터 목록 다시 불러오기 (level_id만으로 조회)
+              // 챕터 목록 다시 불러오기 (size를 크게 설정)
               try {
-                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
+                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
                 const fetchedChapters = allChaptersRes?.data?.chapters ?? [];
-                console.log(`📊 조회된 챕터: ${fetchedChapters.length}개`);
-                allChapters.push(...fetchedChapters);
+                console.log(`📊 조회된 챕터: ${fetchedChapters.length}개 (전체: ${allChaptersRes?.data?.total ?? 0}개)`);
+                allChapters = fetchedChapters;
               } catch (retryError) {
                 console.error("⚠️ 챕터 목록 재조회 실패:", retryError);
               }
