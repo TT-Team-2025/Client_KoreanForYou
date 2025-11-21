@@ -71,15 +71,20 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
             if (createResult.success || createResult.message?.includes("이미") || createResult.message?.includes("존재")) {
               console.log("✅ 카테고리 생성 완료! 챕터 생성 대기 중...");
               
-              // 챕터 생성이 완료될 때까지 최대 3번 재시도 (각 2초 대기)
+              // 생성된 카테고리 정보 확인
+              const createdCategories = createResult.data || [];
+              console.log(`📋 생성된 카테고리: ${createdCategories.length}개`, createdCategories);
+              
+              // 챕터 생성이 완료될 때까지 최대 10번 재시도 (각 3초 대기)
+              // LLM을 사용한 챕터 생성은 시간이 오래 걸릴 수 있음
               let retryCount = 0;
-              const maxRetries = 3;
+              const maxRetries = 10;
               let foundChapters = false;
               
+              // 첫 대기는 5초 (챕터 생성 시작 시간 확보)
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
               while (retryCount < maxRetries && !foundChapters) {
-                // 2초 대기 (챕터 생성 시간 확보)
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
                 console.log(`🔄 챕터 목록 조회 시도 ${retryCount + 1}/${maxRetries}...`);
                 
                 // 챕터 생성 후 다시 불러오기
@@ -101,13 +106,16 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
                 } else {
                   retryCount++;
                   if (retryCount < maxRetries) {
-                    console.log(`⏳ 챕터가 아직 생성 중입니다. 다시 시도합니다...`);
+                    // 3초 대기 후 재시도
+                    console.log(`⏳ 챕터가 아직 생성 중입니다. 3초 후 다시 시도합니다... (${retryCount}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                   }
                 }
               }
               
               if (!foundChapters) {
-                console.warn("⚠️ 챕터 생성 후에도 목록을 불러올 수 없습니다.");
+                console.warn("⚠️ 챕터 생성 후에도 목록을 불러올 수 없습니다. 페이지를 새로고침해주세요.");
+                // 사용자에게 알림을 표시할 수도 있음
               }
             } else {
               console.log("ℹ️ 카테고리 생성 결과:", createResult.message);
