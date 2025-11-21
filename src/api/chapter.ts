@@ -30,7 +30,7 @@ export const createChapter = async (data: ChapterCreate): Promise<BaseResponse<a
 // ✅ 카테고리별 챕터 생성 (POST /api/chapters/categories)
 // ==========================================================
 export const createChaptersByCategory = async (job_id: number): Promise<BaseResponse<any>> => {
-  const response = await apiClient.post<BaseResponse<any>>('/chapters/categories', { job_id });
+  const response = await apiClient.post<BaseResponse<any>>(`/chapters/categories?job_id=${job_id}`);
   return response.data;
 };
 
