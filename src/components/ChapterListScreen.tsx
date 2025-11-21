@@ -75,42 +75,62 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               const createdCategories = createResult.data || [];
               console.log(`📋 생성된 카테고리: ${createdCategories.length}개`, createdCategories);
               
-              // 각 카테고리 ID로 챕터 생성
+              // 각 카테고리 ID로 챕터 생성 (순차 처리로 변경하여 서버 부하 방지)
               if (createdCategories.length > 0 && userProfile.level_id && userProfile.job_id !== undefined) {
                 console.log("🔵 각 카테고리별 챕터 생성 시작...");
-                const chapterCreatePromises = createdCategories.map(async (category: any) => {
-                  try {
-                    // 각 카테고리별로 챕터 생성 (레벨별로 생성)
-                    // 타입 안전성을 위해 체크된 값 사용
-                    if (!userProfile.level_id || userProfile.job_id === undefined) {
-                      throw new Error("level_id 또는 job_id가 없습니다.");
-                    }
-                    
-                    const chapterData = {
-                      category_id: category.category_id,
-                      job_id: userProfile.job_id,
-                      level_id: userProfile.level_id,
-                      title: category.content, // 카테고리 내용을 챕터 제목으로 사용
-                      description: `${category.content}에 대한 학습 챕터`,
-                      is_active: true
-                    };
-                    
-                    console.log(`📝 카테고리 ${category.category_id} (${category.content}) 챕터 생성 중...`);
-                    const chapterResult = await createChapter(chapterData);
-                    console.log(`✅ 카테고리 ${category.category_id} 챕터 생성 완료:`, chapterResult);
-                    return chapterResult;
-                  } catch (error: any) {
-                    console.error(`⚠️ 카테고리 ${category.category_id} 챕터 생성 실패:`, error);
-                    // 중복 에러는 무시 (이미 존재하는 경우)
-                    if (error?.response?.status === 400 || error?.message?.includes("duplicate")) {
-                      console.log(`ℹ️ 카테고리 ${category.category_id} 챕터는 이미 존재합니다.`);
-                    }
-                    return null;
-                  }
-                });
                 
-                // 모든 챕터 생성 완료 대기
-                await Promise.all(chapterCreatePromises);
+                // 타입 안전성을 위해 체크된 값 사용
+                if (!userProfile.level_id || userProfile.job_id === undefined) {
+                  throw new Error("level_id 또는 job_id가 없습니다.");
+                }
+                
+                // 순차적으로 처리 (서버 부하 방지)
+                for (let i = 0; i < createdCategories.length; i++) {
+                  const category = createdCategories[i];
+                  let retryCount = 0;
+                  const maxRetries = 3;
+                  let success = false;
+                  
+                  while (retryCount < maxRetries && !success) {
+                    try {
+                      const chapterData = {
+                        category_id: category.category_id,
+                        job_id: userProfile.job_id,
+                        level_id: userProfile.level_id,
+                        title: category.content, // 카테고리 내용을 챕터 제목으로 사용
+                        description: `${category.content}에 대한 학습 챕터`,
+                        is_active: true
+                      };
+                      
+                      console.log(`📝 카테고리 ${category.category_id} (${category.content}) 챕터 생성 중... (${i + 1}/${createdCategories.length})`);
+                      const chapterResult = await createChapter(chapterData);
+                      console.log(`✅ 카테고리 ${category.category_id} 챕터 생성 완료:`, chapterResult);
+                      success = true;
+                      
+                      // 다음 요청 전 짧은 딜레이 (서버 부하 방지)
+                      if (i < createdCategories.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                      }
+                    } catch (error: any) {
+                      retryCount++;
+                      // 중복 에러는 무시 (이미 존재하는 경우)
+                      if (error?.response?.status === 400 || error?.message?.includes("duplicate")) {
+                        console.log(`ℹ️ 카테고리 ${category.category_id} 챕터는 이미 존재합니다.`);
+                        success = true;
+                        break;
+                      }
+                      
+                      if (retryCount < maxRetries) {
+                        console.warn(`⚠️ 카테고리 ${category.category_id} 챕터 생성 실패 (재시도 ${retryCount}/${maxRetries}):`, error?.message);
+                        // 재시도 전 대기
+                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                      } else {
+                        console.error(`❌ 카테고리 ${category.category_id} 챕터 생성 최종 실패:`, error);
+                      }
+                    }
+                  }
+                }
+                
                 console.log("✅ 모든 챕터 생성 완료! 목록을 불러옵니다...");
               }
               
