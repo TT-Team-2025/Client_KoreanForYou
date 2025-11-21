@@ -80,8 +80,11 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
           allChapters = [];
         }
 
-        // 챕터가 0개면 자동으로 생성
-        if (allChapters.length === 0 && userProfile.job_id !== undefined) {
+        // 직무 챕터가 없으면 자동으로 생성 (공통 챕터는 있지만 직무 챕터가 없는 경우도 처리)
+        const hasJobChapters = allChapters.some((ch: any) => ch.category_id !== 0 && ch.category_id === userProfile.job_id);
+        
+        // 전체 챕터가 없거나, 직무 챕터가 없으면 생성
+        if ((allChapters.length === 0 || !hasJobChapters) && userProfile.job_id !== undefined) {
           console.log("🔵 챕터가 없습니다. 자동 생성을 시작합니다...");
           try {
             const createResult = await createChaptersByCategory(userProfile.job_id);
@@ -260,8 +263,25 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
         }
 
         // 각 챕터의 완료율을 /api/progress/chapters/{chapter_id}로 조회
+        // category_id와 job_id가 일치하는 챕터만 필터링 (직무 챕터는 category_id == job_id)
+        const filteredChapters = allChapters.filter((ch: any) => {
+          // 공통 챕터 (category_id === 0)
+          if (ch.category_id === 0) {
+            return true;
+          }
+          // 직무 챕터 (category_id === job_id)
+          if (ch.category_id === userProfile.job_id) {
+            return true;
+          }
+          // category_id와 job_id가 일치하지 않으면 제외
+          console.warn(`⚠️ 챕터 ${ch.chapter_id}의 category_id(${ch.category_id})가 job_id(${userProfile.job_id})와 일치하지 않습니다.`);
+          return false;
+        });
+        
+        console.log(`📊 필터링 전: ${allChapters.length}개, 필터링 후: ${filteredChapters.length}개`);
+        
         const chaptersWithProgress = await Promise.all(
-          allChapters.map(async (ch: any) => {
+          filteredChapters.map(async (ch: any) => {
             try {
               // /api/progress/chapters/{chapter_id}로 진행률 조회
               const progressRes = await api.get(`/progress/chapters/${ch.chapter_id}`);
@@ -271,8 +291,6 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               let completion_rate = 0;
               if (progressRes.data?.data?.completion_rate !== undefined) {
                 completion_rate = progressRes.data.data.completion_rate;
-              } else if (progressRes.data?.completion_rate !== undefined) {
-                completion_rate = progressRes.data.completion_rate;
               } else if (progressRes.data?.completion_rate !== undefined) {
                 completion_rate = progressRes.data.completion_rate;
               }
@@ -315,7 +333,8 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
   }, [userProfile, isLoadingProfile]);
 
   const commonChapters = chapters.filter((ch) => ch.category_id === 0);
-  const jobChapters = chapters.filter((ch) => ch.category_id !== 0);
+  // 직무 챕터는 category_id === job_id인 것만 필터링
+  const jobChapters = chapters.filter((ch) => ch.category_id !== 0 && ch.category_id === userProfile?.job_id);
 
   const visibleChapters = activeTab === "common" ? commonChapters : jobChapters;
 
