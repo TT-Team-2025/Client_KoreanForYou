@@ -115,20 +115,54 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               }
               
               // 챕터 생성 후 목록 불러오기
-              const [newCommonRes, newJobRes] = await Promise.all([
-                api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`),
-                api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`),
-              ]);
-
-              const newCommonChapters = newCommonRes.data?.chapters ?? [];
-              const newJobChapters = newJobRes.data?.chapters ?? [];
-              console.log(`📊 조회된 챕터: 공통 ${newCommonChapters.length}개, 직무 ${newJobChapters.length}개`);
-              
-              if (newCommonChapters.length > 0 || newJobChapters.length > 0) {
-                allChapters.push(...newCommonChapters, ...newJobChapters);
-                console.log("✅ 챕터 목록 불러오기 완료!");
-              } else {
-                console.warn("⚠️ 챕터 생성 후에도 목록을 불러올 수 없습니다.");
+              // 생성된 카테고리 ID들로 각각 조회하거나, category_id 없이 모든 챕터 조회
+              try {
+                // 방법 1: 생성된 카테고리 ID들로 각각 조회
+                const categoryIds = createdCategories.map((cat: any) => cat.category_id);
+                console.log(`🔍 생성된 카테고리 ID들로 챕터 조회:`, categoryIds);
+                
+                const chapterPromises = categoryIds.map((catId: number) =>
+                  api.get(`/chapters/?category_id=${catId}&level_id=${userProfile.level_id}`).catch(() => null)
+                );
+                
+                const chapterResponses = await Promise.all(chapterPromises);
+                const allNewChapters: any[] = [];
+                
+                chapterResponses.forEach((res, index) => {
+                  if (res?.data?.chapters) {
+                    allNewChapters.push(...res.data.chapters);
+                    console.log(`📚 카테고리 ${categoryIds[index]} 챕터: ${res.data.chapters.length}개`);
+                  }
+                });
+                
+                // 방법 2: 공통 및 직무 챕터도 함께 조회
+                const [commonRes, jobRes] = await Promise.all([
+                  api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`).catch(() => null),
+                  api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`).catch(() => null),
+                ]);
+                
+                const commonChapters = commonRes?.data?.chapters ?? [];
+                const jobChapters = jobRes?.data?.chapters ?? [];
+                
+                // 중복 제거 (chapter_id 기준)
+                const uniqueChapters = new Map();
+                [...allNewChapters, ...commonChapters, ...jobChapters].forEach((ch: any) => {
+                  if (ch.chapter_id) {
+                    uniqueChapters.set(ch.chapter_id, ch);
+                  }
+                });
+                
+                const finalChapters = Array.from(uniqueChapters.values());
+                console.log(`📊 최종 조회된 챕터: ${finalChapters.length}개 (공통 ${commonChapters.length}개, 직무 ${jobChapters.length}개, 새로 생성된 카테고리 ${allNewChapters.length}개)`);
+                
+                if (finalChapters.length > 0) {
+                  allChapters.push(...finalChapters);
+                  console.log("✅ 챕터 목록 불러오기 완료!");
+                } else {
+                  console.warn("⚠️ 챕터 생성 후에도 목록을 불러올 수 없습니다.");
+                }
+              } catch (fetchError) {
+                console.error("⚠️ 챕터 목록 조회 중 에러:", fetchError);
               }
             } else {
               console.log("ℹ️ 카테고리 생성 결과:", createResult.message);
