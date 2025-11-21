@@ -64,8 +64,14 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
         if (allChapters.length === 0 && userProfile.job_id !== undefined) {
           console.log("🔵 챕터가 없습니다. 자동 생성을 시작합니다...");
           try {
-            await createChaptersByCategory(userProfile.job_id);
-            console.log("✅ 챕터 자동 생성 완료! 다시 불러옵니다...");
+            const createResult = await createChaptersByCategory(userProfile.job_id);
+            
+            // 성공적으로 생성되었거나, 이미 존재하는 경우 모두 성공으로 처리
+            if (createResult.success || createResult.message?.includes("이미") || createResult.message?.includes("존재")) {
+              console.log("✅ 챕터 자동 생성 완료! 다시 불러옵니다...");
+            } else {
+              console.log("ℹ️ 카테고리 생성 결과:", createResult.message);
+            }
 
             // 챕터 생성 후 다시 불러오기
             const [newCommonRes, newJobRes] = await Promise.all([
@@ -76,8 +82,29 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
             const newCommonChapters = newCommonRes.data?.chapters ?? [];
             const newJobChapters = newJobRes.data?.chapters ?? [];
             allChapters.push(...newCommonChapters, ...newJobChapters);
-          } catch (createError) {
-            console.error("⚠️ 챕터 자동 생성 실패:", createError);
+          } catch (createError: any) {
+            // 500 에러나 중복 키 에러는 이미 존재하는 것으로 간주하고 계속 진행
+            if (createError?.response?.status === 500 || 
+                createError?.message?.includes("duplicate") ||
+                createError?.message?.includes("already exists")) {
+              console.log("ℹ️ 카테고리가 이미 존재합니다. 챕터 목록을 다시 불러옵니다...");
+              
+              // 챕터 목록 다시 불러오기
+              try {
+                const [newCommonRes, newJobRes] = await Promise.all([
+                  api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`),
+                  api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`),
+                ]);
+
+                const newCommonChapters = newCommonRes.data?.chapters ?? [];
+                const newJobChapters = newJobRes.data?.chapters ?? [];
+                allChapters.push(...newCommonChapters, ...newJobChapters);
+              } catch (retryError) {
+                console.error("⚠️ 챕터 목록 재조회 실패:", retryError);
+              }
+            } else {
+              console.error("⚠️ 챕터 자동 생성 실패:", createError);
+            }
           }
         }
 
