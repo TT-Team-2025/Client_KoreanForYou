@@ -12,7 +12,6 @@ import type {
   User,
 } from "@/types/userTypes";
 import type { BaseResponse } from "@/types/commonTypes";
-import { createChaptersByCategory } from "./chapter";
 
 // ==========================================================
 // ✅ 로그인 (POST /auth/login)
@@ -36,46 +35,11 @@ export const login = async (
 
 // ==========================================================
 // ✅ 회원가입 (POST /auth/signup)
-// 회원가입 후 공통 챕터(job_id=0)와 개별 직무 챕터를 자동 생성
 // ==========================================================
 export const signup = async (
   data: SignupRequest
 ): Promise<BaseResponse<User>> => {
-  // 1. 회원가입 처리
   const res = await apiClient.post<BaseResponse<User>>("/auth/signup", data);
-
-  // 2. 회원가입 성공 후 자동 로그인하여 토큰 획득
-  try {
-    const loginFormData = new URLSearchParams();
-    loginFormData.append("username", data.email);
-    loginFormData.append("password", data.password);
-
-    const loginRes = await apiClient.post<LoginResponse>("/auth/login", loginFormData, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
-
-    // 토큰 저장
-    localStorage.setItem("access_token", loginRes.data.access_token);
-    localStorage.setItem("refresh_token", loginRes.data.refresh_token);
-
-    console.log('✅ 회원가입 후 자동 로그인 완료');
-
-    // 3. 공통 챕터(job_id=0) 생성
-    await createChaptersByCategory(0);
-    console.log('✅ 공통 챕터 생성 완료 (job_id=0)');
-
-    // 4. 선택한 직무 챕터 생성
-    if (data.job_id) {
-      await createChaptersByCategory(data.job_id);
-      console.log(`✅ 직무 챕터 생성 완료 (job_id=${data.job_id})`);
-    }
-  } catch (error) {
-    console.error('⚠️ 챕터 생성 중 오류 발생:', error);
-    // 챕터 생성 실패 시에도 회원가입은 완료된 상태로 유지
-  }
-
   return res.data;
 };
 
