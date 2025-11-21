@@ -65,23 +65,53 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
           console.log("🔵 챕터가 없습니다. 자동 생성을 시작합니다...");
           try {
             const createResult = await createChaptersByCategory(userProfile.job_id);
+            console.log("📋 카테고리 생성 응답:", createResult);
             
             // 성공적으로 생성되었거나, 이미 존재하는 경우 모두 성공으로 처리
             if (createResult.success || createResult.message?.includes("이미") || createResult.message?.includes("존재")) {
-              console.log("✅ 챕터 자동 생성 완료! 다시 불러옵니다...");
+              console.log("✅ 카테고리 생성 완료! 챕터 생성 대기 중...");
+              
+              // 챕터 생성이 완료될 때까지 최대 3번 재시도 (각 2초 대기)
+              let retryCount = 0;
+              const maxRetries = 3;
+              let foundChapters = false;
+              
+              while (retryCount < maxRetries && !foundChapters) {
+                // 2초 대기 (챕터 생성 시간 확보)
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                console.log(`🔄 챕터 목록 조회 시도 ${retryCount + 1}/${maxRetries}...`);
+                
+                // 챕터 생성 후 다시 불러오기
+                const [newCommonRes, newJobRes] = await Promise.all([
+                  api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`),
+                  api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`),
+                ]);
+
+                const newCommonChapters = newCommonRes.data?.chapters ?? [];
+                const newJobChapters = newJobRes.data?.chapters ?? [];
+                const totalNewChapters = newCommonChapters.length + newJobChapters.length;
+                
+                console.log(`📊 조회된 챕터: 공통 ${newCommonChapters.length}개, 직무 ${newJobChapters.length}개 (총 ${totalNewChapters}개)`);
+                
+                if (totalNewChapters > 0) {
+                  allChapters.push(...newCommonChapters, ...newJobChapters);
+                  foundChapters = true;
+                  console.log("✅ 챕터 목록 불러오기 완료!");
+                } else {
+                  retryCount++;
+                  if (retryCount < maxRetries) {
+                    console.log(`⏳ 챕터가 아직 생성 중입니다. 다시 시도합니다...`);
+                  }
+                }
+              }
+              
+              if (!foundChapters) {
+                console.warn("⚠️ 챕터 생성 후에도 목록을 불러올 수 없습니다.");
+              }
             } else {
               console.log("ℹ️ 카테고리 생성 결과:", createResult.message);
             }
-
-            // 챕터 생성 후 다시 불러오기
-            const [newCommonRes, newJobRes] = await Promise.all([
-              api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`),
-              api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`),
-            ]);
-
-            const newCommonChapters = newCommonRes.data?.chapters ?? [];
-            const newJobChapters = newJobRes.data?.chapters ?? [];
-            allChapters.push(...newCommonChapters, ...newJobChapters);
           } catch (createError: any) {
             // 500 에러나 중복 키 에러는 이미 존재하는 것으로 간주하고 계속 진행
             if (createError?.response?.status === 500 || 
@@ -98,6 +128,7 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
 
                 const newCommonChapters = newCommonRes.data?.chapters ?? [];
                 const newJobChapters = newJobRes.data?.chapters ?? [];
+                console.log(`📊 조회된 챕터: 공통 ${newCommonChapters.length}개, 직무 ${newJobChapters.length}개`);
                 allChapters.push(...newCommonChapters, ...newJobChapters);
               } catch (retryError) {
                 console.error("⚠️ 챕터 목록 재조회 실패:", retryError);
