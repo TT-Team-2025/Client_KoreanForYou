@@ -54,13 +54,33 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
         let allChapters: any[] = [];
         
         try {
-          // size를 크게 설정하여 모든 챕터 조회 (최대 500개)
-          const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
+          // level_id만 지정하여 챕터 조회 (page, size는 기본값 사용)
+          const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
           console.log("📋 챕터 조회 응답:", allChaptersRes.data);
           allChapters = allChaptersRes.data?.chapters ?? [];
-          console.log(`📊 초기 조회된 챕터: ${allChapters.length}개 (전체: ${allChaptersRes.data?.total ?? 0}개)`);
+          const total = allChaptersRes.data?.total ?? 0;
+          console.log(`📊 초기 조회된 챕터: ${allChapters.length}개 (전체: ${total}개)`);
+          
+          // 전체 챕터가 더 있으면 추가 페이지 조회
+          if (total > allChapters.length) {
+            console.log(`📄 전체 ${total}개 중 ${allChapters.length}개만 조회됨. 추가 페이지 조회 중...`);
+            const totalPages = Math.ceil(total / 20); // 기본 size=20
+            const additionalPromises = [];
+            for (let page = 2; page <= totalPages; page++) {
+              additionalPromises.push(
+                api.get(`/chapters/?level_id=${userProfile.level_id}&page=${page}`)
+                  .then(res => res.data?.chapters ?? [])
+                  .catch(() => [])
+              );
+            }
+            const additionalChapters = await Promise.all(additionalPromises);
+            const flatAdditional = additionalChapters.flat();
+            allChapters.push(...flatAdditional);
+            console.log(`✅ 추가 조회 완료: 총 ${allChapters.length}개`);
+          }
         } catch (fetchError: any) {
           console.error("⚠️ 초기 챕터 조회 실패:", fetchError);
+          console.error("에러 상세:", fetchError?.response?.data);
           // 조회 실패 시 빈 배열로 시작
           allChapters = [];
         }
@@ -160,20 +180,55 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               try {
                 console.log(`🔍 전체 챕터 조회 중 (level_id=${userProfile.level_id})...`);
                 
-                // size를 크게 설정하여 모든 챕터 조회
-                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
+                // 첫 페이지 조회
+                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
                 console.log("📋 챕터 조회 응답:", allChaptersRes.data);
                 fetchedChapters = allChaptersRes?.data?.chapters ?? [];
+                const total = allChaptersRes?.data?.total ?? 0;
                 
-                console.log(`📊 조회된 전체 챕터: ${fetchedChapters.length}개 (전체: ${allChaptersRes?.data?.total ?? 0}개)`);
+                console.log(`📊 조회된 챕터: ${fetchedChapters.length}개 (전체: ${total}개)`);
+                
+                // 전체 챕터가 더 있으면 추가 페이지 조회
+                if (total > fetchedChapters.length) {
+                  console.log(`📄 전체 ${total}개 중 ${fetchedChapters.length}개만 조회됨. 추가 페이지 조회 중...`);
+                  const totalPages = Math.ceil(total / 20); // 기본 size=20
+                  const additionalPromises = [];
+                  for (let page = 2; page <= totalPages; page++) {
+                    additionalPromises.push(
+                      api.get(`/chapters/?level_id=${userProfile.level_id}&page=${page}`)
+                        .then(res => res.data?.chapters ?? [])
+                        .catch(() => [])
+                    );
+                  }
+                  const additionalChapters = await Promise.all(additionalPromises);
+                  const flatAdditional = additionalChapters.flat();
+                  fetchedChapters.push(...flatAdditional);
+                  console.log(`✅ 추가 조회 완료: 총 ${fetchedChapters.length}개`);
+                }
                 
                 if (fetchedChapters.length === 0) {
                   // 재시도
                   console.log("⏳ 챕터가 아직 조회되지 않습니다. 재시도 중...");
                   await new Promise(resolve => setTimeout(resolve, 2000));
                   
-                  const retryRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
+                  const retryRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
                   fetchedChapters = retryRes?.data?.chapters ?? [];
+                  const retryTotal = retryRes?.data?.total ?? 0;
+                  
+                  if (retryTotal > fetchedChapters.length) {
+                    const retryTotalPages = Math.ceil(retryTotal / 20);
+                    const retryPromises = [];
+                    for (let page = 2; page <= retryTotalPages; page++) {
+                      retryPromises.push(
+                        api.get(`/chapters/?level_id=${userProfile.level_id}&page=${page}`)
+                          .then(res => res.data?.chapters ?? [])
+                          .catch(() => [])
+                      );
+                    }
+                    const retryAdditional = await Promise.all(retryPromises);
+                    fetchedChapters.push(...retryAdditional.flat());
+                  }
+                  
                   if (fetchedChapters.length > 0) {
                     console.log(`✅ 재시도 후 챕터 목록 불러오기 완료! (${fetchedChapters.length}개)`);
                   } else {
@@ -201,11 +256,28 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
                 createError?.message?.includes("already exists")) {
               console.log("ℹ️ 카테고리가 이미 존재합니다. 챕터 목록을 다시 불러옵니다...");
               
-              // 챕터 목록 다시 불러오기 (size를 크게 설정)
+              // 챕터 목록 다시 불러오기
               try {
-                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}&page=1&size=500`);
-                const fetchedChapters = allChaptersRes?.data?.chapters ?? [];
-                console.log(`📊 조회된 챕터: ${fetchedChapters.length}개 (전체: ${allChaptersRes?.data?.total ?? 0}개)`);
+                const allChaptersRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
+                let fetchedChapters = allChaptersRes?.data?.chapters ?? [];
+                const total = allChaptersRes?.data?.total ?? 0;
+                
+                // 전체 챕터가 더 있으면 추가 페이지 조회
+                if (total > fetchedChapters.length) {
+                  const totalPages = Math.ceil(total / 20);
+                  const additionalPromises = [];
+                  for (let page = 2; page <= totalPages; page++) {
+                    additionalPromises.push(
+                      api.get(`/chapters/?level_id=${userProfile.level_id}&page=${page}`)
+                        .then(res => res.data?.chapters ?? [])
+                        .catch(() => [])
+                    );
+                  }
+                  const additionalChapters = await Promise.all(additionalPromises);
+                  fetchedChapters.push(...additionalChapters.flat());
+                }
+                
+                console.log(`📊 조회된 챕터: ${fetchedChapters.length}개 (전체: ${total}개)`);
                 allChapters = fetchedChapters;
               } catch (retryError) {
                 console.error("⚠️ 챕터 목록 재조회 실패:", retryError);
