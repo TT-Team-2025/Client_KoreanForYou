@@ -40,18 +40,23 @@ export const login = async (
 export const signup = async (
   data: SignupRequest
 ): Promise<BaseResponse<User>> => {
+  console.log("🔵 회원가입 요청 데이터:", data);
   const res = await apiClient.post<BaseResponse<User>>("/auth/signup", data);
+  console.log("🔵 회원가입 응답:", res.data);
 
   // 회원가입 성공 후 자동으로 챕터 생성
-  // job_id가 있으면 해당 직무의 챕터 + 공통 챕터 생성
-  if (res.data?.data?.job_id !== undefined) {
+  // 요청 데이터의 job_id 사용 (응답에는 job_id가 없음)
+  if (data.job_id !== undefined) {
     try {
-      await createChaptersByCategory(res.data.data.job_id);
+      console.log(`🔵 챕터 생성 시작 (job_id=${data.job_id})`);
+      await createChaptersByCategory(data.job_id);
       console.log("✅ 챕터 자동 생성 완료");
     } catch (error) {
       console.error("⚠️ 챕터 생성 실패:", error);
       // 챕터 생성 실패해도 회원가입은 성공으로 처리
     }
+  } else {
+    console.warn("⚠️ job_id가 없어서 챕터 생성을 건너뜁니다");
   }
 
   return res.data;
