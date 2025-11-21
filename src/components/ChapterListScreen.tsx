@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { BookOpen, Briefcase, Lock, Home } from "lucide-react";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
+import { createChaptersByCategory } from "@/api/chapter";
 
 interface ChapterListItem {
   chapter_id: number;
@@ -58,6 +59,27 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
         const jobChapters = jobRes.data?.chapters ?? [];
 
         const allChapters = [...commonChapters, ...jobChapters];
+
+        // 챕터가 0개면 자동으로 생성
+        if (allChapters.length === 0 && userProfile.job_id !== undefined) {
+          console.log("🔵 챕터가 없습니다. 자동 생성을 시작합니다...");
+          try {
+            await createChaptersByCategory(userProfile.job_id);
+            console.log("✅ 챕터 자동 생성 완료! 다시 불러옵니다...");
+
+            // 챕터 생성 후 다시 불러오기
+            const [newCommonRes, newJobRes] = await Promise.all([
+              api.get(`/chapters/?category_id=0&level_id=${userProfile.level_id}`),
+              api.get(`/chapters/?category_id=${userProfile.job_id}&level_id=${userProfile.level_id}`),
+            ]);
+
+            const newCommonChapters = newCommonRes.data?.chapters ?? [];
+            const newJobChapters = newJobRes.data?.chapters ?? [];
+            allChapters.push(...newCommonChapters, ...newJobChapters);
+          } catch (createError) {
+            console.error("⚠️ 챕터 자동 생성 실패:", createError);
+          }
+        }
 
         // 각 챕터의 완료율 조회
         const chaptersWithProgress = await Promise.all(
