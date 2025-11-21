@@ -12,6 +12,7 @@ import type {
   User,
 } from "@/types/userTypes";
 import type { BaseResponse } from "@/types/commonTypes";
+import { createChaptersByCategory } from "./chapter";
 
 // ==========================================================
 // ✅ 로그인 (POST /auth/login)
@@ -40,6 +41,19 @@ export const signup = async (
   data: SignupRequest
 ): Promise<BaseResponse<User>> => {
   const res = await apiClient.post<BaseResponse<User>>("/auth/signup", data);
+
+  // 회원가입 성공 후 자동으로 챕터 생성
+  // job_id가 있으면 해당 직무의 챕터 + 공통 챕터 생성
+  if (res.data?.data?.job_id !== undefined) {
+    try {
+      await createChaptersByCategory(res.data.data.job_id);
+      console.log("✅ 챕터 자동 생성 완료");
+    } catch (error) {
+      console.error("⚠️ 챕터 생성 실패:", error);
+      // 챕터 생성 실패해도 회원가입은 성공으로 처리
+    }
+  }
+
   return res.data;
 };
 
