@@ -10,7 +10,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { BookOpen, Briefcase, Lock, Home } from "lucide-react";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
-import { createChaptersByCategory } from "@/api/chapter";
+import { createChaptersByCategory, createChapter } from "@/api/chapter";
 
 interface ChapterListItem {
   chapter_id: number;
@@ -69,10 +69,42 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
               const createdCategories = createResult.data || [];
               console.log(`📋 생성된 카테고리: ${createdCategories.length}개`);
               
-              // 카테고리 생성 API가 챕터도 자동 생성하는지 확인하기 위해 잠시 대기 후 조회
-              // 백엔드에서 카테고리 생성 시 챕터도 자동 생성되는 경우를 대비
-              console.log("⏳ 챕터 자동 생성 대기 중...");
-              await new Promise(resolve => setTimeout(resolve, 3000));
+              // 각 카테고리당 1개의 챕터만 생성 (순차 처리)
+              if (createdCategories.length > 0 && userProfile.level_id && userProfile.job_id !== undefined) {
+                console.log("🔵 각 카테고리별 챕터 생성 시작 (각 카테고리당 1개씩)...");
+                
+                for (let i = 0; i < createdCategories.length; i++) {
+                  const category = createdCategories[i];
+                  try {
+                    const chapterData = {
+                      category_id: category.category_id,
+                      job_id: userProfile.job_id,
+                      level_id: userProfile.level_id,
+                      title: category.content, // 카테고리 내용을 챕터 제목으로 사용
+                      description: `${category.content}에 대한 학습 챕터`,
+                      is_active: true
+                    };
+                    
+                    console.log(`📝 카테고리 ${category.category_id} (${category.content}) 챕터 생성 중... (${i + 1}/${createdCategories.length})`);
+                    await createChapter(chapterData);
+                    console.log(`✅ 카테고리 ${category.category_id} 챕터 생성 완료`);
+                    
+                    // 다음 요청 전 딜레이 (서버 부하 방지)
+                    if (i < createdCategories.length - 1) {
+                      await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                  } catch (error: any) {
+                    // 중복 에러는 무시 (이미 존재하는 경우)
+                    if (error?.response?.status === 400 || error?.message?.includes("duplicate")) {
+                      console.log(`ℹ️ 카테고리 ${category.category_id} 챕터는 이미 존재합니다.`);
+                    } else {
+                      console.error(`⚠️ 카테고리 ${category.category_id} 챕터 생성 실패:`, error?.message);
+                    }
+                  }
+                }
+                
+                console.log("✅ 모든 챕터 생성 완료! 목록을 불러옵니다...");
+              }
               
               // 챕터 목록 불러오기
               try {
@@ -88,18 +120,7 @@ export function ChapterListScreen({ onNavigate }: ChapterListScreenProps) {
                   allChapters.push(...allFetchedChapters);
                   console.log("✅ 챕터 목록 불러오기 완료!");
                 } else {
-                  // 챕터가 없으면 재시도 (백엔드에서 생성 중일 수 있음)
-                  console.log("⏳ 챕터가 아직 생성 중일 수 있습니다. 재시도 중...");
-                  await new Promise(resolve => setTimeout(resolve, 3000));
-                  
-                  const retryRes = await api.get(`/chapters/?level_id=${userProfile.level_id}`);
-                  const retryChapters = retryRes?.data?.chapters ?? [];
-                  if (retryChapters.length > 0) {
-                    allChapters.push(...retryChapters);
-                    console.log("✅ 재시도 후 챕터 목록 불러오기 완료!");
-                  } else {
-                    console.warn("⚠️ 챕터가 생성되지 않았습니다. 백엔드에서 카테고리 생성 시 챕터도 자동 생성되는지 확인이 필요합니다.");
-                  }
+                  console.warn("⚠️ 챕터가 생성되지 않았습니다.");
                 }
               } catch (fetchError: any) {
                 console.error("⚠️ 챕터 목록 조회 중 에러:", fetchError);
