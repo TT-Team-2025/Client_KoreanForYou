@@ -311,7 +311,7 @@ export function ConversationScreen({ onNavigate, setup, sessionData, onComplete 
 
           // AI 대화 완료 기록 생성 - 실제 피드백 데이터 포함
           const conversationRecord = {
-            id: Date.now(),
+            id: data.feedback?.log_id || Date.now(), // log_id를 scenario_id로 사용
             type: 'conversation',
             title: setup.topic || 'AI 대화 연습',
             date: new Date().toISOString().split('T')[0],

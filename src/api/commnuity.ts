@@ -50,6 +50,17 @@ export const getReplies = async(postId:number) : Promise<RepliesResponse> =>{
     return response.data
 }// end getReplies
 
+export const getUserPost = async():Promise<PostsResponse> => {
+  const response = await apiClient.get(`/posts/my-posts`)
+  console.log('내가 작성한 글? :', response.data)
+  return response.data
+}
+
+export const getUserReply = async():Promise<RepliesResponse> => {
+  const response = await apiClient.get(`/posts/replies/my-replies`)
+  console.log('내가 쓴 댓글', response.data)
+  return response.data
+}
 
 export const createReply = async (
   postId: number,
@@ -71,3 +82,4 @@ export const deleteReply = async (replyId: number) => {
 
   return response.data;
 };
+

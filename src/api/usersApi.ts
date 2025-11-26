@@ -64,3 +64,4 @@ export const getUserStatus = async (userId: number): Promise<UserStatus> => {
   console.log("getUserStatus response : ", response.data);
   return response.data;
 };
+

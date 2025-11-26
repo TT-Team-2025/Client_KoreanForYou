@@ -1,79 +1,57 @@
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ArrowLeft, MessageSquare, Eye, ThumbsUp } from "lucide-react";
+import { ArrowLeft, MessageSquare, Eye } from "lucide-react";
+import { useUserPost } from "@/hooks/users/useUserPost";
+import { PostCategory } from "@/types/community";
 
 interface MyPostsScreenProps {
   onNavigate: (screen: string) => void;
 }
 
 export function MyPostsScreen({ onNavigate }: MyPostsScreenProps) {
-  // Mock data - 내가 쓴 글
-  const myPosts = [
-    {
-      id: 1,
-      title: "서빙할 때 유용한 표현 공유합니다",
-      category: "팁공유",
-      content: "손님이 물을 달라고 하실 때 '물 가져다 드릴게요'라고 하면 돼요...",
-      createdAt: "2025-10-15",
-      views: 245,
-      likes: 18,
-      comments: 12
-    },
-    {
-      id: 2,
-      title: "주방장님과 대화하는 법",
-      category: "질문",
-      content: "주방장님이 빨리 하라고 하실 때 뭐라고 대답해야 할까요?",
-      createdAt: "2025-10-12",
-      views: 189,
-      likes: 15,
-      comments: 8
-    },
-    {
-      id: 3,
-      title: "한국 음식 이름 외우기 팁",
-      category: "팁공유",
-      content: "비빔밥, 김치찌개, 된장찌개... 처음엔 너무 어려웠는데 이렇게 외웠어요",
-      createdAt: "2025-10-08",
-      views: 412,
-      likes: 35,
-      comments: 20
-    },
-    {
-      id: 4,
-      title: "레벨테스트 준비 어떻게 하셨나요?",
-      category: "질문",
-      content: "다음주에 레벨테스트를 봐야 하는데 어떻게 준비하면 좋을까요?",
-      createdAt: "2025-10-05",
-      views: 156,
-      likes: 9,
-      comments: 6
-    },
-    {
-      id: 5,
-      title: "손님들이 자주 쓰는 표현 모음",
-      category: "팁공유",
-      content: "3개월 서빙하면서 손님들이 자주 하시는 말 정리해봤어요",
-      createdAt: "2025-10-01",
-      views: 523,
-      likes: 42,
-      comments: 28
-    }
-  ];
+  const { data, isLoading, error } = useUserPost();
 
-  const getCategoryColor = (category: string) => {
+  const myPosts = data?.posts || [];
+
+  const getCategoryColor = (category: PostCategory) => {
     switch (category) {
-      case "팁공유":
+      case PostCategory.INFO_SHARE:
         return "bg-blue-100 text-blue-700";
-      case "질문":
+      case PostCategory.QNA:
         return "bg-orange-100 text-orange-700";
-      case "일상":
+      case PostCategory.FREE:
         return "bg-green-100 text-green-700";
+      case PostCategory.JOB_INFO:
+        return "bg-purple-100 text-purple-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-red-600">게시글을 불러오는데 실패했습니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,7 +87,7 @@ export function MyPostsScreen({ onNavigate }: MyPostsScreenProps) {
         ) : (
           myPosts.map((post) => (
             <Card
-              key={post.id}
+              key={post.post_id}
               className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => onNavigate('postDetail')}
             >
@@ -133,18 +111,10 @@ export function MyPostsScreen({ onNavigate }: MyPostsScreenProps) {
 
                     {/* Meta Info */}
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{post.createdAt}</span>
+                      <span>{formatDate(post.created_at)}</span>
                       <div className="flex items-center gap-1">
                         <Eye className="w-3.5 h-3.5" />
-                        <span>{post.views}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                        <span>{post.likes}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>{post.comments}</span>
+                        <span>{post.view_count}</span>
                       </div>
                     </div>
                   </div>

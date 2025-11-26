@@ -111,3 +111,4 @@ export interface SignupRequest {
  * 회원가입 응답 (BaseResponse 구조)
  */
 export interface SignupResponse extends BaseResponse<User> {}
+
