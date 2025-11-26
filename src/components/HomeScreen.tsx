@@ -2,13 +2,12 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
-import { BookOpen, MessageSquare, Award, Clock, TrendingUp, Volume2 } from "lucide-react";
+import { BookOpen, MessageSquare, Award, Clock, Calendar, Volume2 } from "lucide-react";
 import { StudyCalendar } from "./StudyCalendar";
 import { LearningRecordCard } from "./shared/LearningRecordCard";
 import { StatCard } from "./shared/StatCard";
 import { QuickAccessCard } from "./shared/QuickAccessCard";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
-import { useUserStatus } from "@/hooks/users/useUserStatus";
 import { useRandomSentence } from "@/hooks/sentences/useRandomSentece";
 import { useGetPosts } from "@/hooks/community/usePosts";
 import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
@@ -26,7 +25,6 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
   // API로 사용자 정보 조회
   const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
   const { data : posts , isLoading : isLoadingPosts} = useGetPosts()
-  const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
   const { data : userCountSpeech, isLoading: isLodingSpeechCount} = useSpeechCount()
 
   // 오늘의 문장 조회
@@ -44,8 +42,18 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
   const { data: userProgress } = useUserProgress(userProfile?.user_id || 0);
   const { data: scenarioHistory } = useScenarioHistory();
 
+  // 학습 시간 포맷팅 (분 -> 시간:분)
+  const formatStudyTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}시간 ${mins}분`;
+    }
+    return `${mins}분`;
+  };
+
   // 로딩 중일 때
-  if (isLoadingProfile || isLoadingStatus) {
+  if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -251,7 +259,7 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
             <div className="grid grid-cols-2 gap-4">
               <StatCard
                 icon={Clock}
-                value={`${userProgress?.study_time_minutes || 0}분`}
+                value={formatStudyTime(userProgress?.study_time_minutes || 0)}
                 label="학습 시간"
                 iconColor="text-blue-500"
               />
@@ -268,9 +276,11 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                 iconColor="text-purple-500"
               />
               <StatCard
-                icon={TrendingUp}
-                value={`${userStatus?.current_access_days || 0}일`}
-                label="연속 학습"
+                icon={Calendar}
+                value={userProgress?.last_study_date
+                  ? new Date(userProgress.last_study_date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
+                  : '없음'}
+                label="최근 학습일"
                 iconColor="text-orange-500"
               />
             </div>

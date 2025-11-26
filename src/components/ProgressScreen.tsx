@@ -4,12 +4,12 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
-import { ArrowLeft, Calendar, Clock, BookOpen, MessageSquare, Flame, Award, ChevronRight, Target } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, BookOpen, MessageSquare, Award, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Navigation } from "./Navigation";
 import { StudyCalendar } from "./StudyCalendar";
 import { useUserProfile } from "@/hooks/users/useUserProfile";
-import { useUserStatus } from "@/hooks/users/useUserStatus";
+import { useUserProgress } from "@/hooks/progress/useUserProgress";
 import { useSpeechCount } from "@/hooks/scenarios/useSpeechCount";
 import { useScenarioHistory } from "@/hooks/scenarios/useScenarioHistory";
 import { useRecentChapterFeedbacks } from "@/hooks/chapters/useRecentChapterFeedbacks";
@@ -23,7 +23,7 @@ interface ProgressScreenProps {
 export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: ProgressScreenProps) {
   // API로 사용자 정보 조회
   const { data: userProfile, isLoading: isLoadingProfile } = useUserProfile();
-  const { data: userStatus, isLoading: isLoadingStatus } = useUserStatus(userProfile?.user_id || 0);
+  const { data: userProgress, isLoading: isLoadingProgress } = useUserProgress(userProfile?.user_id || 0);
   const { data: userCountSpeech, isLoading: isLoadingSpeechCount } = useSpeechCount();
   const { data: scenarioHistory, isLoading: isLoadingHistory } = useScenarioHistory();
   const { data: chapterFeedbacks } = useRecentChapterFeedbacks(10);
@@ -37,7 +37,7 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
   };
 
   // 로딩 중일 때
-  if (isLoadingProfile || isLoadingStatus) {
+  if (isLoadingProfile || isLoadingProgress) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -48,14 +48,14 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
     );
   }
 
-  // 학습 시간 포맷팅 (초 -> 시간:분)
-  const formatStudyTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+  // 학습 시간 포맷팅 (분 -> 시간:분)
+  const formatStudyTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
     if (hours > 0) {
-      return `${hours}시간 ${minutes}분`;
+      return `${hours}시간 ${mins}분`;
     }
-    return `${minutes}분`;
+    return `${mins}분`;
   };
   
   // 이번 주인지 확인하는 함수
@@ -127,7 +127,7 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                 <div className="w-12 h-12 rounded-full bg-blue-200/50 flex items-center justify-center">
                   <Clock className="w-6 h-6 text-blue-600" />
                 </div>
-                <div className="text-3xl text-blue-900">{formatStudyTime(userStatus?.total_study_time || 0)}</div>
+                <div className="text-3xl text-blue-900">{formatStudyTime(userProgress?.study_time_minutes || 0)}</div>
                 <div className="text-sm text-blue-700">총 학습 시간</div>
               </div>
             </CardContent>
@@ -140,7 +140,7 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
                 <div className="w-12 h-12 rounded-full bg-green-200/50 flex items-center justify-center">
                   <BookOpen className="w-6 h-6 text-green-600" />
                 </div>
-                <div className="text-3xl text-green-900">{userStatus?.total_sentences_completed || 0}개</div>
+                <div className="text-3xl text-green-900">{userProgress?.completed_sentences || 0}개</div>
                 <div className="text-sm text-green-700">완료한 문장</div>
               </div>
             </CardContent>
@@ -159,15 +159,19 @@ export function ProgressScreen({ onNavigate, onBack, onSelectLearningRecord }: P
             </CardContent>
           </Card>
 
-          {/* 연속 학습 */}
+          {/* 최근 학습 일자 */}
           <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 shadow-sm">
             <CardContent className="pt-6 pb-5">
               <div className="flex flex-col items-center text-center space-y-2">
                 <div className="w-12 h-12 rounded-full bg-orange-200/50 flex items-center justify-center">
-                  <Flame className="w-6 h-6 text-orange-600" />
+                  <Calendar className="w-6 h-6 text-orange-600" />
                 </div>
-                <div className="text-3xl text-orange-900">{userStatus?.current_access_days || 0}일</div>
-                <div className="text-sm text-orange-700">연속 학습</div>
+                <div className="text-3xl text-orange-900">
+                  {userProgress?.last_study_date
+                    ? new Date(userProgress.last_study_date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
+                    : '없음'}
+                </div>
+                <div className="text-sm text-orange-700">최근 학습일</div>
               </div>
             </CardContent>
           </Card>
