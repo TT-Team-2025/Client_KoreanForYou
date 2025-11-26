@@ -81,6 +81,9 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<string | null>(null); // 녹음 시작 시간
 
+  // 챕터 학습 시간 추적
+  const chapterStartTimeRef = useRef<number>(Date.now()); // 챕터 시작 시간 (밀리초)
+
   // 챕터 피드백 생성 훅
   const { mutateAsync: generateChapterFeedback } = useGenerateChapterFeedback();
 
@@ -112,6 +115,9 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
         setCompleted(new Array(data.length).fill(false));
         setCurrentIndex(0);
         attemptCountRef.current = 0;
+
+        // 챕터 시작 시간 초기화
+        chapterStartTimeRef.current = Date.now();
       } catch (err) {
         console.error("❌ 문장 불러오기 실패:", err);
         toast.error("문장을 불러올 수 없습니다.");
@@ -454,17 +460,24 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
         return;
       }
 
+      // 챕터 학습 완료 시간 계산 (초 단위)
+      const chapterElapsedTime = Math.floor((Date.now() - chapterStartTimeRef.current) / 1000);
+      console.log(`⏱️ 챕터 학습 시간: ${chapterElapsedTime}초`);
+
       // 챕터 피드백 생성 및 이동
       try {
         toast.loading("피드백을 생성하는 중...", { id: "generate-feedback" });
-        const chapterFeedback = await generateChapterFeedback(chapter.chapter_id);
+        const chapterFeedback = await generateChapterFeedback({
+          chapterId: chapter.chapter_id,
+          completionTime: chapterElapsedTime // 초 단위로 전달
+        });
         toast.success("피드백이 생성되었습니다!", { id: "generate-feedback" });
 
         console.log("📤 Generated chapter feedback:", chapterFeedback);
 
         // 피드백 화면으로 이동
         onNavigate("feedback", {
-          feedback_id: chapterFeedback.feedback_id, // ✅ feedback_id 명시적으로 추가
+          feedback_id: chapterFeedback.feedback_id,
           chapter_id: chapterFeedback.chapter_id,
           user_id: chapterFeedback.user_id,
           total_score: chapterFeedback.total_score,
@@ -474,16 +487,49 @@ export function SentenceLearningScreen({ onNavigate, chapter }: SentenceLearning
           completed_sentences: chapterFeedback.completed_sentences,
           summary_feedback: chapterFeedback.summary_feedback,
           weaknesses: chapterFeedback.weaknesses,
-          total_time: chapterFeedback.total_time,
+          total_time: chapterElapsedTime, // ✅ 프론트에서 계산한 시간 사용
+          completion_time: chapterElapsedTime, // ✅ 백업용
           created_at: chapterFeedback.created_at,
-          type: "chapter", // ✅ "sentence"가 아니라 "chapter"로 수정
+          type: "chapter",
           title: chapter.title,
-          chapter: chapter, // ✅ 다시 연습하기 버튼을 위한 chapter 정보 추가
+          chapter: chapter,
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("챕터 피드백 생성 실패:", error);
-        toast.error("피드백 생성에 실패했습니다.", { id: "generate-feedback" });
-        onNavigate("chapterList");
+
+        // 백엔드 오류 상세 로그
+        if (error?.response?.data) {
+          console.error("백엔드 오류 상세:", error.response.data);
+        }
+
+        // completion_time 타입 오류인 경우 사용자에게 안내
+        const errorMessage = error?.response?.data?.detail || error?.message || "";
+        if (errorMessage.includes("completion_time") || errorMessage.includes("timestamp")) {
+          toast.warning("피드백 저장 중 일부 오류가 발생했지만, 학습 결과는 표시됩니다.", {
+            id: "generate-feedback"
+          });
+        } else {
+          toast.warning("피드백 저장에 실패했지만, 학습 결과는 표시됩니다.", {
+            id: "generate-feedback"
+          });
+        }
+
+        // 피드백 생성 실패해도 프론트에서 계산한 시간으로 피드백 화면 이동
+        const fallbackFeedback = {
+          chapter_id: chapter.chapter_id,
+          total_sentences: sentences.length,
+          completed_sentences: completed.filter(Boolean).length,
+          summary_feedback: "학습을 완료했습니다! 백엔드 저장 중 오류가 발생했지만, 학습 내용은 정상적으로 완료되었습니다.",
+          weaknesses: [],
+          total_time: chapterElapsedTime, // ✅ 프론트에서 계산한 시간
+          completion_time: chapterElapsedTime, // ✅ 백업용
+          type: "chapter",
+          title: chapter.title,
+          chapter: chapter,
+          error: true,
+        };
+
+        onNavigate("feedback", fallbackFeedback);
       }
     } else {
       toast.info(`모든 문장을 학습해야 챕터 피드백을 볼 수 있어요. (${completedCount}/${totalCount})`);

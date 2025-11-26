@@ -187,7 +187,7 @@ export function HomeScreen({ onNavigate, onSelectLearningRecord }: HomeScreenPro
                   <div className="space-y-3">
                     {recentRecords.map((record) => (
                       <LearningRecordCard
-                        key={record.id}
+                        key={`${record.type}-${record.id}`}
                         record={record}
                         onClick={() => handleRecordClick(record)}
                       />

@@ -3,8 +3,6 @@ import { LandingPage } from "./components/LandingPage";
 import { LoginScreen } from "./components/LoginScreen";
 import { SignupScreen } from "./components/SignupScreen";
 import { HomeScreen } from "./components/HomeScreen";
-import { LevelTestScreen } from "./components/LevelTestScreen";
-import { LevelTestResultScreen } from "./components/LevelTestResultScreen";
 import { LevelUpScreen } from "./components/LevelUpScreen";
 import { ChapterListScreen } from "./components/ChapterListScreen";
 import { SentenceLearningScreen } from "./components/SentenceLearningScreen";
@@ -31,8 +29,6 @@ type Screen =
   | 'login' 
   | 'signup' 
   | 'home' 
-  | 'levelTest' 
-  | 'levelTestResult'
   | 'levelUp'
   | 'chapterList'
   | 'sentenceLearning'

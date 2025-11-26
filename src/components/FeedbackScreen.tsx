@@ -39,7 +39,7 @@ export function FeedbackScreen({
   console.log("🔍 Type:", recordType, "| isConversation:", isConversation);
 
   /** 2) progress_id로 피드백 조회 (AI 대화인 경우) */
-  const progressId = learningRecord?.progress_id;
+  const progressId = learningRecord?.id;
   const { data: fetchedFeedbackData, isLoading: isLoadingFeedback } =
     useScenarioFeedback(isConversation ? progressId : undefined);
 
@@ -453,38 +453,68 @@ export function FeedbackScreen({
 
             {/* Default encouragement if no summary feedback */}
             {!sentenceData.summaryFeedback && (
-              <Card className="bg-blue-50 border-blue-200">
+              <Card className={`${learningRecord?.error ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'}`}>
                 <CardHeader>
-                  <CardTitle>AI 선생님의 피드백</CardTitle>
+                  <CardTitle>
+                    {learningRecord?.error ? (
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-yellow-600" />
+                        <span>학습 완료</span>
+                      </div>
+                    ) : (
+                      'AI 선생님의 피드백'
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700 mb-3">
-                    {sentenceData.progress === 100
-                      ? `완벽합니다! 모든 문장을 훌륭하게 익히셨네요. 이제 실전에서도 자신있게 사용하실 수 있을 거예요!`
-                      : sentenceData.progress >= 50
-                      ? `잘하고 계십니다! ${sentenceData.completedSentences}개 문장을 완벽하게 익히셨어요. 조금만 더 연습하면 모든 문장을 완벽하게 말할 수 있을 거예요!`
-                      : `좋은 시작입니다! ${sentenceData.completedSentences}개 문장을 연습하셨네요. 꾸준히 반복하면 더 자연스럽게 말할 수 있게 됩니다.`}
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
-                      <span className="text-sm">
-                        매일 10분씩 반복해서 연습하세요
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
-                      <span className="text-sm">
-                        실제 상황을 상상하며 소리내어 읽어보세요
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
-                      <span className="text-sm">
-                        AI 말하기 연습실에서 실전처럼 연습해보세요
-                      </span>
-                    </div>
-                  </div>
+                  {learningRecord?.error ? (
+                    <>
+                      <p className="text-gray-700 mb-3">
+                        학습은 성공적으로 완료되었습니다! 하지만 상세 피드백 생성 중 일시적인 오류가 발생했습니다.
+                      </p>
+                      <div className="bg-white p-3 rounded border border-yellow-300 mb-3">
+                        <p className="text-sm text-gray-600">
+                          완료한 문장: {sentenceData.completedSentences}/{sentenceData.totalSentences}개
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          학습 시간: {sentenceData.duration}
+                        </p>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        💡 백엔드 completion_time 필드 타입 오류로 인해 상세 피드백을 생성하지 못했습니다. 개발팀에 문의하여 빠른 시일 내에 해결하겠습니다.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-700 mb-3">
+                        {sentenceData.progress === 100
+                          ? `완벽합니다! 모든 문장을 훌륭하게 익히셨네요. 이제 실전에서도 자신있게 사용하실 수 있을 거예요!`
+                          : sentenceData.progress >= 50
+                          ? `잘하고 계십니다! ${sentenceData.completedSentences}개 문장을 완벽하게 익히셨어요. 조금만 더 연습하면 모든 문장을 완벽하게 말할 수 있을 거예요!`
+                          : `좋은 시작입니다! ${sentenceData.completedSentences}개 문장을 연습하셨네요. 꾸준히 반복하면 더 자연스럽게 말할 수 있게 됩니다.`}
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
+                          <span className="text-sm">
+                            매일 10분씩 반복해서 연습하세요
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
+                          <span className="text-sm">
+                            실제 상황을 상상하며 소리내어 읽어보세요
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5" />
+                          <span className="text-sm">
+                            AI 말하기 연습실에서 실전처럼 연습해보세요
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
