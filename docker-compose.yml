@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: koreanforyou_redis_dev
     ports:
-      - "6379:6379"
+      - "6380:6379"  # 외부 포트를 6380으로 변경 (6379는 이미 사용 중)
     volumes:
       - redis_data_dev:/data
     healthcheck:
